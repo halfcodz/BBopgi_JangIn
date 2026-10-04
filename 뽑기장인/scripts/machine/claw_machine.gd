@@ -325,7 +325,7 @@ func _build_cabinet() -> void:
 	hqm.size = Vector2(W - 0.02, header_h - 0.02)
 	hq.mesh = hqm
 	hq.material_override = header_mat
-	hq.position = Vector3(0, glass_top + header_h * 0.5, hd + 0.002)
+	hq.position = Vector3(0, glass_top + header_h * 0.5, hd + 0.004)
 	add_child(hq)
 	name_label = Label3D.new()
 	name_label.font = load("res://assets/fonts/BlackHanSans-Regular.ttf")
@@ -334,7 +334,7 @@ func _build_cabinet() -> void:
 	name_label.outline_size = 22
 	name_label.outline_modulate = Color(0.35, 0.1, 0.25)
 	name_label.modulate = Color(1, 1, 0.92)
-	name_label.position = Vector3(0, glass_top + header_h * 0.5, hd + 0.006)
+	name_label.position = Vector3(0, glass_top + header_h * 0.5, hd + 0.009)
 	add_child(name_label)
 	# 반짝이는 전구 테두리
 	bulb_on = _mat(Color(1, 0.95, 0.7), 0.3)
@@ -375,12 +375,22 @@ func _build_cabinet() -> void:
 	interior_light.light_energy = 2.2 if kind != "small" else 1.6
 	interior_light.light_color = Color(1.0, 0.97, 0.93)
 	interior_light.shadow_enabled = true
+	interior_light.shadow_bias = 0.04
+	interior_light.shadow_normal_bias = 1.5
+	# 멀리 있는 기계의 그림자·조명은 서서히 끈다(그림자 지도 부족으로 생기는 깜빡임 방지)
+	interior_light.distance_fade_enabled = true
+	interior_light.distance_fade_begin = 7.0
+	interior_light.distance_fade_shadow = 3.5
+	interior_light.distance_fade_length = 2.0
 	add_child(interior_light)
 	var fill := OmniLight3D.new()
 	fill.position = Vector3(0, base_h + (glass_top - base_h) * 0.55, z_front - 0.08)
 	fill.omni_range = 0.9
 	fill.light_energy = 0.5
 	fill.light_color = Color(1.0, 0.9, 0.95)
+	fill.distance_fade_enabled = true
+	fill.distance_fade_begin = 6.0
+	fill.distance_fade_length = 2.0
 	add_child(fill)
 
 	# 플레이어 상호작용용 몸체(기계 전체 덩어리)
@@ -463,7 +473,7 @@ func _build_controls() -> void:
 	panel_root.rotation.x = deg_to_rad(10)
 	add_child(panel_root)
 	_box(Vector3(W - 0.04, 0.06, 0.22), Vector3.ZERO, panel_mat, true, panel_root)
-	_box(Vector3(W - 0.04, 0.012, 0.225), Vector3(0, 0.035, 0), _mat(Color(0.62, 0.63, 0.66), 0.3, 0.85), false, panel_root)
+	_box(Vector3(W - 0.036, 0.012, 0.226), Vector3(0, 0.036, 0), _mat(Color(0.62, 0.63, 0.66), 0.3, 0.85), false, panel_root)
 	# 조이스틱
 	var js_x := -0.22 if kind != "small" else -0.15
 	var base_ring := MeshInstance3D.new()
@@ -477,6 +487,7 @@ func _build_controls() -> void:
 	panel_root.add_child(base_ring)
 	joystick_base = base_ring
 	joystick_pivot = Node3D.new()
+	joystick_pivot.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF  # 매 프레임(_process)에 움직인다
 	joystick_pivot.position = Vector3(js_x, 0.045, 0)
 	panel_root.add_child(joystick_pivot)
 	var shaft := MeshInstance3D.new()
@@ -541,7 +552,7 @@ func _build_controls() -> void:
 	disp_root.rotation.x = deg_to_rad(-40)
 	panel_root.add_child(disp_root)
 	_box(Vector3(dw + 0.02, 0.095, 0.03), Vector3(0, 0, -0.006), _mat(Color(0.85, 0.86, 0.9), 0.25, 0.8), false, disp_root)
-	_box(Vector3(dw, 0.08, 0.02), Vector3(0, 0, 0.0), disp, false, disp_root)
+	_box(Vector3(dw, 0.08, 0.02), Vector3(0, 0, 0.004), disp, false, disp_root)
 	_box(Vector3(0.03, 0.05, 0.03), Vector3(0, -0.06, -0.01), _mat(Color(0.2, 0.2, 0.22), 0.4), false, disp_root)
 	var seg := load("res://assets/fonts/DoHyeon-Regular.ttf")
 	credit_label = Label3D.new()
@@ -549,7 +560,7 @@ func _build_controls() -> void:
 	credit_label.font_size = 40
 	credit_label.pixel_size = 0.00095 if kind != "small" else 0.0008
 	credit_label.modulate = Color(1.0, 0.3, 0.25)
-	credit_label.position = Vector3(0, 0.018, 0.011)
+	credit_label.position = Vector3(0, 0.018, 0.016)
 	credit_label.shaded = false
 	credit_label.outline_size = 0
 	disp_root.add_child(credit_label)
@@ -558,7 +569,7 @@ func _build_controls() -> void:
 	timer_label.font_size = 40
 	timer_label.pixel_size = 0.00095 if kind != "small" else 0.0008
 	timer_label.modulate = Color(0.3, 1.0, 0.45)
-	timer_label.position = Vector3(0, -0.02, 0.011)
+	timer_label.position = Vector3(0, -0.02, 0.016)
 	timer_label.shaded = false
 	timer_label.outline_size = 0
 	disp_root.add_child(timer_label)
@@ -708,6 +719,9 @@ func _build_chute() -> void:
 	bl.position = Vector3((-ix + chute_x) * 0.5, bin_y + 0.18, z_front)
 	bl.omni_range = 0.4
 	bl.light_energy = 0.6
+	bl.distance_fade_enabled = true
+	bl.distance_fade_begin = 5.0
+	bl.distance_fade_length = 1.5
 	add_child(bl)
 
 
@@ -737,14 +751,29 @@ func _build_cameras() -> void:
 func _initial_prizes() -> void:
 	var saved: Array = Game.machine_prizes.get(machine_id, [])
 	if not saved.is_empty():
+		var placed := 0
 		for st in saved:
+			# 예전 저장(가게 좌표)이 지금 기계 안이 아니면(가게 배치가 바뀜) 버린다
+			if String(st.get("space", "")) != "local" and not _saved_inside(st):
+				continue
 			var p := PrizeFactory.create(st["id"], null, int(st.get("colorway", 0)))
 			if p == null:
 				continue
 			prizes_root.add_child(p)
-			p.load_state(st)
-		return
+			p.load_state(st, global_transform)
+			placed += 1
+		if placed > 0:
+			return
 	fill_random(initial_fill)
+
+
+func _saved_inside(st: Dictionary) -> bool:
+	var parts: Array = st.get("parts", [])
+	if parts.is_empty():
+		return false
+	var p: Array = parts[0]
+	var l := to_local(Vector3(p[0], p[1], p[2]))
+	return absf(l.x) < ix + 0.02 and l.z > z_back - 0.05 and l.z < z_front + 0.05 and l.y > bin_y - 0.05 and l.y < glass_top
 
 
 func _rand_pos_in_bed(rng: RandomNumberGenerator, margin: float) -> Vector3:
@@ -816,7 +845,7 @@ func save_layout() -> void:
 	var arr := []
 	for p in get_prizes():
 		if not p.won:
-			arr.append(p.save_state())
+			arr.append(p.save_state(global_transform))
 	Game.machine_prizes[machine_id] = arr
 
 
@@ -1025,11 +1054,16 @@ func _physics_process(delta: float) -> void:
 			head_y -= float(settings["drop_speed"]) * delta
 			if claw.head_blocked(0.006) or _prong_on_floor():
 				touch_frames += 1
+			elif claw_style == "ufo" and claw.max_flex() > deg_to_rad(16.0):
+				# UFO형: 팔 끝이 상자를 누르면 팔이 살짝 꺾이며(스프링) 그 힘만큼만 누른다.
+				# 충분히 꺾이면 줄이 느슨해진 것으로 보고 멈춘다 → 상자를 날리지 않고 '살짝' 누름
+				touch_frames += 1
 			var done := head_y <= lim_y
-			if touch_frames >= 3:
+			# 빠르게 내려올수록 닿자마자 멈춘다(한 틱에 내려가는 거리가 커서)
+			if touch_frames >= (3 if float(settings["drop_speed"]) < 0.25 else 1):
 				# 줄이 느슨해지면서 1cm 정도 더 내려앉은 뒤 멈춘다
 				if sink_left < 0.0:
-					sink_left = 0.01 * claw_size
+					sink_left = (0.003 if claw_style == "ufo" else 0.01) * claw_size
 				sink_left -= float(settings["drop_speed"]) * delta
 				if sink_left <= 0.0:
 					done = true
@@ -1039,6 +1073,9 @@ func _physics_process(delta: float) -> void:
 				Sfx.play_at("claw_close", claw.head.global_position)
 				_set_state(State.GRABBING)
 		State.GRABBING:
+			# UFO형: 줄이 느슨해진 집게의 무게(약 0.6kg)만큼 닿은 상자를 살짝 누른다(날려 보내지 않음)
+			if claw_style == "ufo" and phase_t < 0.6:
+				claw.press_touching(6.0)
 			if phase_t > 0.75:
 				claw.set_power(_power("power_lift"))
 				_set_state(State.LIFTING)
@@ -1098,7 +1135,7 @@ func _prong_on_floor() -> bool:
 
 func _move_carriage(want: Vector3, speed: float, delta: float) -> void:
 	var target := want * speed
-	var acc := 1.4
+	var acc := maxf(1.4, speed * 5.0)  # 빠른 레일은 가속도 더 크게(실제 모터처럼 금방 최고 속도)
 	var dv := target - carriage_vel
 	var maxdv := acc * delta
 	if dv.length() > maxdv:
@@ -1123,10 +1160,10 @@ func _update_sway(delta: float) -> void:
 	var k := float(settings.get("sway", 0.5))
 	var g := 9.81
 	var acc := Vector2(-a.x, -a.z) / L * k
-	var damp := 1.6 - k * 0.9
+	var damp := maxf(1.6 - k * 0.9, 0.12)  # 흔들림을 아주 크게 해도 감쇠가 0 아래로 가지 않게
 	sway_v += (acc - (g / L) * sway - damp * sway_v) * delta
 	sway += sway_v * delta
-	sway = sway.limit_length(0.35)
+	sway = sway.limit_length(0.5)
 
 
 func _place_claw_now() -> void:

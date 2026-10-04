@@ -137,7 +137,7 @@ func _display_box(id: String, pos: Vector3) -> void:
 
 
 func _gap() -> float:
-	return float(settings.get("bridge_gap", 0.17))
+	return float(settings.get("bridge_gap", 0.20))
 
 
 func _win_y() -> float:
@@ -193,7 +193,8 @@ func _bar_lines() -> Array:
 	var x1 := ix - 0.025
 	match _layout():
 		"3bar":
-			var h := g * 0.72
+			# 가운데 봉 + 양옆 봉: 상자는 두 칸 중 한 칸으로 똑바로 서야 빠진다
+			var h := g
 			return [[Vector3(x0, bar_y, h), Vector3(x1, bar_y, h)], [Vector3(x0, bar_y, 0), Vector3(x1, bar_y, 0)], [Vector3(x0, bar_y, -h), Vector3(x1, bar_y, -h)]]
 		"v":
 			# ハの字: 왼쪽은 좁고 오른쪽으로 갈수록 벌어진다
@@ -237,6 +238,20 @@ func _rod(a: Vector3, b: Vector3, r: float, mat: Material, collide: bool, pm: Ph
 		bars_root.add_child(sb)
 
 
+func _plate(size: Vector3, pos: Vector3, mat: Material, pm: PhysicsMaterial) -> void:
+	_box(size, pos, mat, false, bars_root)
+	var sb := StaticBody3D.new()
+	sb.collision_layer = LAYER_ENV
+	sb.physics_material_override = pm
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = size
+	cs.shape = bs
+	sb.add_child(cs)
+	sb.position = pos
+	bars_root.add_child(sb)
+
+
 func _rebuild_bars() -> void:
 	if bars_root:
 		bars_root.free()
@@ -248,7 +263,7 @@ func _rebuild_bars() -> void:
 	var rubber := _mat(Color(0.08, 0.08, 0.1), 0.75)
 	var alu := _mat(Color(0.72, 0.73, 0.76), 0.3, 0.8)
 	var pm := PhysicsMaterial.new()
-	pm.friction = 1.0  # 봉에 씌운 미끄럼 방지 고무
+	pm.friction = float(settings.get("bar_friction", 0.35))  # 매끈한 크롬 봉(+얇은 고무): 비스듬한 상자는 걸리고, 똑바로 서면 미끄러져 빠진다
 	var r := 0.0135
 	# 양옆 벽에 붙은 세로 프레임(봉을 고정하는 브래킷 레일)
 	for sx in [-1.0, 1.0]:
@@ -267,6 +282,25 @@ func _rebuild_bars() -> void:
 		for e in [ca, cb]:
 			var ep: Vector3 = e
 			_box(Vector3(0.03, 0.05, 0.035), Vector3(sign(ep.x) * (ix - 0.02), ep.y - 0.012, ep.z), alu, false, bars_root)
+	# 봉 바깥(앞·뒤)은 봉 높이의 흰 받침대(台): 상자는 바깥으로 떨어지지 않고, 봉 사이로 거의 수직으로 서야만 빠진다
+	var zmin := INF
+	var zmax := -INF
+	for line in _bar_lines():
+		for e in line:
+			zmin = minf(zmin, e.z)
+			zmax = maxf(zmax, e.z)
+	var plate := _mat(Color(0.96, 0.97, 0.99), 0.2)
+	plate.clearcoat_enabled = true
+	var plate_pm := PhysicsMaterial.new()
+	plate_pm.friction = 0.45
+	var th := 0.03
+	var py := bar_y - 0.05 - th * 0.5
+	var f0 := zmax + r + 0.004
+	if z_front - 0.01 > f0:
+		_plate(Vector3(ix * 2.0, th, z_front - f0), Vector3(0, py, (f0 + z_front) * 0.5), plate, plate_pm)
+	var b0 := zmin - r - 0.004
+	if b0 > z_back + 0.01:
+		_plate(Vector3(ix * 2.0, th, b0 - z_back), Vector3(0, py, (b0 + z_back) * 0.5), plate, plate_pm)
 	# 뒤쪽 가로 철제 가드(상자가 뒤로 넘어가 끼지 않도록)와 앞쪽 낮은 가드
 	_rod(Vector3(-ix + 0.02, bar_y + 0.09, z_back + 0.04), Vector3(ix - 0.02, bar_y + 0.09, z_back + 0.04), 0.01, chrome, true)
 	_rod(Vector3(-ix + 0.02, bar_y - 0.07, z_front - 0.03), Vector3(ix - 0.02, bar_y - 0.07, z_front - 0.03), 0.009, chrome, false)
@@ -301,6 +335,9 @@ func _build_chute() -> void:
 	bl.position = Vector3(0, base_h + 0.05, 0)
 	bl.omni_range = 0.8
 	bl.light_energy = 0.5
+	bl.distance_fade_enabled = true
+	bl.distance_fade_begin = 5.0
+	bl.distance_fade_length = 1.5
 	add_child(bl)
 	# 안내 스티커
 	var tip := Label3D.new()
@@ -350,7 +387,8 @@ func _place_on_bars(id: String, x: float, rng: RandomNumberGenerator) -> Prize:
 	if rng.randf() < 0.5:
 		b = Basis(Vector3.UP, PI) * b
 	var half_h := 0.075
-	var center := Vector3(x + rng.randf_range(-0.015, 0.015), top + half_h + 0.004, rng.randf_range(-0.01, 0.01))
+	var cz := _gap() * 0.5 if _layout() == "3bar" else 0.0  # 3봉: 가운데 봉과 앞 봉 사이에 걸친다
+	var center := Vector3(x + rng.randf_range(-0.015, 0.015), top + half_h + 0.004, cz + rng.randf_range(-0.01, 0.01))
 	# 모델 원점은 상자 바닥면(모델 -Y 쪽) 중앙 → 중심에서 모델 +Y 방향 반대로 0.10
 	var origin := center - b * Vector3(0, 0.10, 0)
 	p.global_transform = global_transform * Transform3D(b, origin)

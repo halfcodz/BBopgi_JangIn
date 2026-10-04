@@ -69,22 +69,26 @@ func teleport_to(pos: Vector3, rot_y: float = 0.0) -> void:
 		b.global_transform = Transform3D(xf.basis * b.global_transform.basis, pos + xf.basis * rel)
 		b.linear_velocity = Vector3.ZERO
 		b.angular_velocity = Vector3.ZERO
+		b.reset_physics_interpolation()
 
 
-func save_state() -> Dictionary:
+## ref: 기계의 global_transform. 기계 기준(로컬) 좌표로 저장해야 가게 배치가 바뀌어도 상품이 기계 안에 그대로 남는다.
+func save_state(ref: Transform3D = Transform3D.IDENTITY) -> Dictionary:
 	var parts := []
+	var inv := ref.affine_inverse()
 	for b in bodies:
-		var t := b.global_transform
-		parts.append([t.origin.x, t.origin.y, t.origin.z,
-			t.basis.get_rotation_quaternion().x, t.basis.get_rotation_quaternion().y,
-			t.basis.get_rotation_quaternion().z, t.basis.get_rotation_quaternion().w])
-	return {"id": prize_id, "colorway": colorway, "parts": parts}
+		var t := inv * b.global_transform
+		var q := t.basis.get_rotation_quaternion()
+		parts.append([t.origin.x, t.origin.y, t.origin.z, q.x, q.y, q.z, q.w])
+	return {"id": prize_id, "colorway": colorway, "parts": parts, "space": "local"}
 
 
-func load_state(d: Dictionary) -> void:
+func load_state(d: Dictionary, ref: Transform3D = Transform3D.IDENTITY) -> void:
 	var parts: Array = d.get("parts", [])
 	if parts.size() != bodies.size():
 		return
+	var base := ref if String(d.get("space", "")) == "local" else Transform3D.IDENTITY
 	for i in bodies.size():
 		var p: Array = parts[i]
-		bodies[i].global_transform = Transform3D(Basis(Quaternion(p[3], p[4], p[5], p[6])), Vector3(p[0], p[1], p[2]))
+		bodies[i].global_transform = base * Transform3D(Basis(Quaternion(p[3], p[4], p[5], p[6]).normalized()), Vector3(p[0], p[1], p[2]))
+		bodies[i].reset_physics_interpolation()

@@ -30,7 +30,7 @@ var _metal: StandardMaterial3D
 var _dark: StandardMaterial3D
 ## UFO형 팔이 버틸 수 있는 무게(팔 하나당, 힘 100% 기준, 뉴턴). 넘으면 팔이 밀려 벌어지며 미끄러진다.
 ## 실제 일본 기계처럼 무거운 피규어 상자는 통째로 들리지 않고 살짝 들렸다 미끄러지며 자리만 옮겨진다.
-var arm_hold_full := 4.6
+var arm_hold_full := 3.6  # 100% 힘이어도 상자(0.8kg)의 절반 무게(팔 하나당 약 3.9N)를 못 버틴다 → 통째로 들 수 없음
 ## 들어 올리는 동안에만 무게 한계를 적용(기계가 켜고 끈다)
 var limit_load := false
 var _yield_left: Array[float] = []
@@ -480,17 +480,49 @@ func set_power(p: float) -> void:
 	_apply_motor()
 
 
+## UFO형 팔: 벌린 상태를 '부드러운 스프링'으로 유지한다.
+## 팔 끝이 상자 위를 누르면 팔이 살짝 꺾이며(더 벌어지며) 받아 주므로, 상자를 세게 밀어 날려 보내지 않는다.
+const UFO_FLEX := deg_to_rad(35.0)
+var arm_spring := 0.25  ## 벌린 자세를 유지하는 힘(N·m) – 이보다 세게 눌리면 팔이 꺾인다
+var _open_target := 0.0
+
+
 func open() -> void:
 	closing = false
-	_set_open_limit(open_angle)
+	_open_target = open_angle
+	_set_open_limit(open_angle + UFO_FLEX if style == "ufo" else open_angle)
 	_apply_motor()
 
 
 ## 배출구 위에서 놓을 때: UFO형 팔은 크게 벌려 끼인 상자도 떨어지게 한다
 func open_release() -> void:
 	closing = false
-	_set_open_limit(maxf(open_angle, deg_to_rad(62.0)) if style == "ufo" else open_angle)
+	_open_target = maxf(open_angle, deg_to_rad(62.0)) if style == "ufo" else open_angle
+	_set_open_limit(_open_target + deg_to_rad(20.0) if style == "ufo" else open_angle)
 	_apply_motor()
+
+
+## 힌지 하나의 현재 벌어진 각도(라디안, + = 벌어짐)
+func prong_angle(i: int) -> float:
+	var rel := head.global_transform.basis.inverse() * prongs[i].global_transform.basis
+	var local := hinges[i].transform.basis.inverse() * rel
+	return atan2(local.x.y, local.x.x)
+
+
+## 벌린 자세에서 팔이 눌려 더 꺾인 정도(가장 많이 꺾인 팔 기준)
+func max_flex() -> float:
+	var m := 0.0
+	for i in prongs.size():
+		m = maxf(m, prong_angle(i) - _open_target)
+	return m
+
+
+func _servo_open(delta: float) -> void:
+	for i in prongs.size():
+		var err := _open_target - prong_angle(i)  # + 면 더 벌려야 함
+		var v := clampf(err * 10.0, -3.0, 3.0)
+		hinges[i].set_param(HingeJoint3D.PARAM_MOTOR_TARGET_VELOCITY, -v)  # Jolt: 음수 = 벌어짐
+		hinges[i].set_param(HingeJoint3D.PARAM_MOTOR_MAX_IMPULSE, arm_spring * delta)
 
 
 func _set_open_limit(a: float) -> void:
@@ -505,7 +537,12 @@ func close(p: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if style != "ufo" or not closing or not limit_load:
+	if style != "ufo":
+		return
+	if not closing:
+		_servo_open(delta)
+		return
+	if not limit_load:
 		return
 	if _yield_left.size() != prongs.size():
 		_yield_left.resize(prongs.size())
@@ -559,6 +596,28 @@ func closedness() -> float:
 
 
 ## 발들이 무언가에 닿아 있는지(하강 정지 판정용)
+## 집게 무게(줄이 느슨해진 뒤 상품 위에 얹힌 무게)로 닿아 있는 상품을 살짝 누른다. weight: 뉴턴
+func press_touching(weight: float) -> void:
+	var tips := tip_positions()
+	var bodies := {}
+	for i in prongs.size():
+		for b in prongs[i].get_colliding_bodies():
+			if b is RigidBody3D:
+				bodies[b] = tips[i]
+	if _probe_params:
+		_probe_params.transform = head.global_transform * Transform3D(Basis(), Vector3(0, -0.004, 0))
+		for hit in get_world_3d().direct_space_state.intersect_shape(_probe_params, 4):
+			if hit["collider"] is RigidBody3D:
+				bodies[hit["collider"]] = head.global_position
+	if bodies.is_empty():
+		return
+	var f := weight / bodies.size()
+	for b in bodies:
+		var rb: RigidBody3D = b
+		rb.sleeping = false
+		rb.apply_force(Vector3.DOWN * f, bodies[b] - rb.global_position)
+
+
 func touching_prize() -> bool:
 	for p in prongs:
 		for b in p.get_colliding_bodies():
@@ -585,6 +644,8 @@ func snap_all(xf: Transform3D) -> void:
 		prongs[i].global_transform = xf * Transform3D(rotb, local.origin)
 		prongs[i].linear_velocity = Vector3.ZERO
 		prongs[i].angular_velocity = Vector3.ZERO
+		prongs[i].reset_physics_interpolation()
+	head.reset_physics_interpolation()
 
 
 var _probe_shape: CylinderShape3D

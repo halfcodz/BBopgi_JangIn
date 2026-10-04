@@ -163,10 +163,10 @@ const LEVELS := [
 
 ## 일본식 UFO 기계 난이도: 팔 힘은 실제처럼 약하게 두고, 봉(다리) 간격으로 조절한다
 const BRIDGE_LEVELS := [
-	["😊 쉬움", "봉 간격이 넓어 잘 빠져요", 0.185],
-	["🙂 보통", "실제 매장 기본 세팅", 0.165],
-	["😤 어려움", "상자 두께보다 조금만 넓어요", 0.157],
-	["💸 짠물", "거의 꽉 끼는 간격", 0.152],
+	["😊 쉬움", "조금 기울어도 빠져요", 0.215],
+	["🙂 보통", "거의 똑바로 서야 빠져요(실제 매장)", 0.20],
+	["😤 어려움", "수직에 가까워야 빠져요", 0.19],
+	["💸 짠물", "정확히 수직이어야 겨우 빠져요", 0.185],
 ]
 
 
@@ -174,7 +174,7 @@ func _current_level() -> int:
 	var st := machine.settings
 	if machine is BridgeMachine:
 		for i in BRIDGE_LEVELS.size():
-			if absf(float(st.get("bridge_gap", 0.165)) - BRIDGE_LEVELS[i][2]) < 0.001:
+			if absf(float(st.get("bridge_gap", 0.20)) - BRIDGE_LEVELS[i][2]) < 0.001:
 				return i
 		return -1
 	for i in LEVELS.size():
@@ -244,11 +244,18 @@ func _build_easy_tab() -> void:
 	_big_choice(tab_easy, "조작 방법", ["🕹 조이스틱 + 버튼", "🔘 버튼 2개(→ 후 ↑)"], modes.find(String(machine.settings["control_mode"])), func(i): _apply("control_mode", modes[i]))
 	if not machine is BridgeMachine:
 		_big_choice(tab_easy, "집게 발", ["3발 집게", "2발 집게"], 0 if int(machine.settings["prong_count"]) == 3 else 1, func(i): _apply("prong_count", 3 if i == 0 else 2))
-	var sways := [0.0, 0.5, 0.9]
-	var cur_sway := 0
+	var sways := [0.0, 0.5, 0.9, 1.6]
 	var sw := float(machine.settings["sway"])
-	cur_sway = 0 if sw < 0.25 else (1 if sw < 0.7 else 2)
-	_big_choice(tab_easy, "줄 흔들림", ["없음", "보통", "많이"], cur_sway, func(i): _apply("sway", sways[i]), 3)
+	var cur_sway := 0 if sw < 0.25 else (1 if sw < 0.7 else (2 if sw < 1.25 else 3))
+	_big_choice(tab_easy, "줄 흔들림", ["없음", "보통", "많이", "아주 출렁"], cur_sway, func(i): _apply("sway", sways[i]), 4)
+	# 집게 속도(레일·하강·상승 한 번에)
+	var speeds := [[0.12, 0.1, 0.1], [0.2, 0.17, 0.15], [0.4, 0.32, 0.3], [0.75, 0.6, 0.55]]
+	var mv := float(machine.settings["move_speed"])
+	var cur_sp := 0 if mv < 0.16 else (1 if mv < 0.3 else (2 if mv < 0.55 else 3))
+	_big_choice(tab_easy, "집게 속도 (레일·하강·상승)", ["느리게", "보통", "빠르게", "아주 빠르게"], cur_sp, func(i):
+		_apply("move_speed", speeds[i][0])
+		_apply("drop_speed", speeds[i][1])
+		_apply("lift_speed", speeds[i][2]), 4)
 	if machine is BridgeMachine:
 		var lays := ["2bar", "3bar", "v", "step"]
 		_big_choice(tab_easy, "다리 모양 (실제 일본 기계 세팅)", ["기본 2봉 다리", "3봉 다리", "ハの字 (벌어지는 다리)", "단차 다리 (뒤가 높음)"], lays.find(String(machine.settings.get("bridge_layout", "2bar"))), func(i): _apply("bridge_layout", lays[i]))
@@ -305,10 +312,10 @@ func _build_machine_tab() -> void:
 	_option(tab_machine, "조작 방식", "control_mode", ["조이스틱 + 버튼", "2버튼(→ 후 ↑)"], ["joystick", "2button"])
 	_option(tab_machine, "집게 발 개수", "prong_count", ["3발", "2발"], [3, 2])
 	_slider(tab_machine, "발 벌림 각도", "open_angle", 20, 60, 1, "%d°", "넓게 벌리면 큰 인형에 유리, 좁으면 작은 상품에 유리 (기계가 쉬고 있을 때 적용)")
-	_slider(tab_machine, "레일 이동 속도", "move_speed", 0.06, 0.4, 0.01, "%.2f m/s")
-	_slider(tab_machine, "하강 속도", "drop_speed", 0.06, 0.35, 0.01, "%.2f m/s")
-	_slider(tab_machine, "상승 속도", "lift_speed", 0.06, 0.35, 0.01, "%.2f m/s")
-	_slider(tab_machine, "줄 흔들림", "sway", 0.0, 1.0, 0.05, "%.2f", "높을수록 멈출 때 집게가 많이 흔들려요")
+	_slider(tab_machine, "레일 이동 속도", "move_speed", 0.04, 1.2, 0.01, "%.2f m/s")
+	_slider(tab_machine, "하강 속도", "drop_speed", 0.04, 1.0, 0.01, "%.2f m/s")
+	_slider(tab_machine, "상승 속도", "lift_speed", 0.04, 1.0, 0.01, "%.2f m/s")
+	_slider(tab_machine, "줄 흔들림", "sway", 0.0, 2.0, 0.05, "%.2f", "높을수록 멈출 때 집게가 많이 흔들려요(1 이상은 아주 출렁)")
 	_slider(tab_machine, "하강 깊이 한계", "drop_depth", 30, 100, 1, "%d%%", "100% = 바닥까지 내려감")
 
 

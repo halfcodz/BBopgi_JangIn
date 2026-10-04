@@ -85,6 +85,33 @@ func _initialize() -> void:
 				var a: PackedStringArray = OS.get_environment("AIM").split(",")
 				tgt.x = c.x + float(a[0])
 				tgt.z = c.z + float(a[1])
+			"smart":
+				# 상자가 기울어 있으면 들린 쪽 끝을 눌러 세우고, 아니면 한 방향으로 계속 민다
+				var up_y := absf(bl.z.y)
+				if up_y < 0.995:
+					var e1: Vector3 = c + ax * 0.13
+					var e2: Vector3 = c - ax * 0.13
+					var hi: Vector3 = e1 if e1.y > e2.y else e2
+					tgt.z = hi.z
+				else:
+					tgt.z = c.z + 0.12
+			"smart2":
+				# 사람처럼: 상자 중심이 봉 사이 한쪽(|z| 0.05~0.09)에 오도록 밀고, 들린 끝은 눌러서 세운다
+				var e1b: Vector3 = c + bl.x * 0.13  # 상자 긴 변(모델 X축)
+				var e2b: Vector3 = c - bl.x * 0.13
+				var hib: Vector3 = e1b if e1b.y > e2b.y else e2b
+				if c.z < -0.085:
+					tgt.z = c.z - 0.12  # 뒤 끝을 들어 앞으로
+				elif c.z > 0.085:
+					tgt.z = c.z + 0.12  # 앞 끝을 들어 뒤로
+				elif absf(bl.z.y) < 0.8:
+					# 크게 기운 상자: 위쪽 끝을 아래쪽 끝 위로 밀어 세운다(각 누르기)
+					var lob: Vector3 = e2b if e1b.y > e2b.y else e1b
+					tgt.z = hib.z + signf(lob.z - hib.z) * 0.035 + rng.randf_range(-0.01, 0.01)
+				elif absf(bl.z.y) < 0.995:
+					tgt.z = hib.z  # 들린 끝 들기
+				else:
+					tgt.z = c.z + 0.12
 			"push":
 				tgt.z = c.z + 0.12
 			"pushback":
@@ -116,10 +143,15 @@ func _initialize() -> void:
 		var shot_n := 0
 		var maxlift := 0.0
 		var y0: float = b.global_position.y if is_instance_valid(b) else 0.0
+		var cross := ""
 		while m.state != 0:
 			await physics_frame
 			if is_instance_valid(b):
 				maxlift = maxf(maxlift, b.global_position.y - y0)
+				var lc: Vector3 = m.to_local(b.global_position)
+				if cross == "" and lc.y < m.bar_y - 0.08:
+					var lb: Basis = m.global_transform.basis.inverse() * b.global_transform.basis
+					cross = " 통과: z=%.3f 장축 기울기(수직=90)=%.0f" % [lc.z, rad_to_deg(asin(absf(lb.x.y)))]
 			if cam and r < 4 and OS.get_environment("SHOTALL") == "" and m.state >= 4 and Engine.get_physics_frames() % 20 == 0 and shot_n < 16:
 				get_root().disable_3d = false
 				await process_frame
@@ -132,8 +164,8 @@ func _initialize() -> void:
 			await physics_frame
 		if cam and (r <= 2 or OS.get_environment("SHOTALL") != ""):
 			get_root().disable_3d = false
-			var cp2: Vector3 = m.to_global(Vector3(0.1, 1.5, 0.75))
-			cam.global_transform = Transform3D(Basis.looking_at(m.to_global(Vector3(-0.25, 1.3, 0.2)) - cp2), cp2)
+			var cp2: Vector3 = m.to_global(Vector3(0.62, 1.12, 0.0))
+			cam.global_transform = Transform3D(Basis.looking_at(m.to_global(Vector3(0.0, 1.0, 0.0)) - cp2), cp2)
 			await process_frame
 			await process_frame
 			await RenderingServer.frame_post_draw
@@ -147,6 +179,8 @@ func _initialize() -> void:
 			var c2: Vector3 = m.to_local(b.global_position)
 			var bl2: Basis = m.global_transform.basis.inverse() * b.global_transform.basis
 			pose = "c=(%.3f,%.3f,%.3f) up=(%.2f,%.2f,%.2f)" % [c2.x, c2.y, c2.z, bl2.z.x, bl2.z.y, bl2.z.z]
+		if cross != "":
+			printerr(cross)
 		printerr("play %d aim=(%.3f,%.3f) maxlift=%.3f won=%s %s" % [r - 1, tgt.x - c.x, tgt.z - c.z, maxlift, won, pose])
 		if won:
 			wins += 1

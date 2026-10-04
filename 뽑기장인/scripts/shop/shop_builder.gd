@@ -35,8 +35,7 @@ func _build_environment() -> void:
 	e.ssao_enabled = true
 	e.ssao_radius = 0.6
 	e.ssao_intensity = 1.6
-	e.ssr_enabled = true
-	e.ssr_max_steps = 48
+	e.ssr_enabled = false  # 화면 공간 반사는 움직일 때 반짝이며 떨려 보여서 끄고, 반사 프로브만 쓴다
 	e.glow_enabled = true
 	e.glow_intensity = 0.55
 	e.glow_bloom = 0.04
@@ -212,9 +211,9 @@ func _build_machines() -> void:
 	var bx := -RX + 0.62
 	var jp := [
 		["bridge_1", "UFO 피규어 · 미루", Color(0.25, 0.55, 1.0), ["jp_figure_a"], 0.2, {}],
-		["bridge_2", "UFO 피규어 · 보노", Color(0.25, 0.55, 1.0), ["jp_figure_b"], 1.2, {"bridge_layout": "3bar"}],
+		["bridge_2", "UFO 피규어 · 보노", Color(0.25, 0.55, 1.0), ["jp_figure_b"], 1.21, {"bridge_layout": "3bar"}],
 		["bridge_3", "UFO 피규어 · 냥냥", Color(0.95, 0.35, 0.6), ["jp_figure_c"], 2.6, {}],
-		["bridge_4", "UFO 피규어 · 루루", Color(0.95, 0.35, 0.6), ["jp_figure_d"], 3.6, {"bridge_layout": "v"}],
+		["bridge_4", "UFO 피규어 · 루루", Color(0.95, 0.35, 0.6), ["jp_figure_d"], 3.61, {"bridge_layout": "v"}],
 	]
 	for j in jp:
 		var preset2: Dictionary = {"name": j[1], "prize_ids": j[3]}

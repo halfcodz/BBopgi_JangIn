@@ -112,12 +112,12 @@ func default_settings(kind: String) -> Dictionary:
 			"name": "일본식 피규어 뽑기",
 			"plays_per_1000": 1, "bonus_5000": 6, "accept_5000": true,
 			"timer_sec": 30, "control_mode": "2button", "prong_count": 2,
-			"power_grab": 60, "power_lift": 50, "power_top": 45, "power_carry": 45,
+			"power_grab": 70, "power_lift": 65, "power_top": 55, "power_carry": 55,
 			"top_drop_delay": 0.3,
 			"payout_mode": "skill", "payout_every": 20, "payout_revenue": 20000, "strong_power": 100,
 			"move_speed": 0.18, "drop_speed": 0.16, "lift_speed": 0.14, "sway": 0.35,
 			"drop_depth": 100, "open_angle": 45, "auto_drop": true, "start_from_home": true,
-			"bridge_gap": 0.165, "bridge_layout": "2bar",
+			"bridge_gap": 0.20, "bridge_layout": "2bar", "bar_friction": 0.35,
 			"prize_ids": ["jp_figure_a", "jp_figure_b"],
 		}
 	if kind == "small":
@@ -159,16 +159,16 @@ func get_settings(machine_id: String, kind: String, preset: Dictionary = {}) -> 
 				machine_settings[machine_id][k] = d[k]
 		# 일본식 기계는 UFO 집게로 바뀌면서 팔 힘·벌림·봉 간격 기본값이 달라졌다 → 한 번 새 값으로
 		var st: Dictionary = machine_settings[machine_id]
-		if kind == "bridge" and int(st.get("_rev", 0)) < 3:
-			for k in ["power_grab", "power_lift", "power_top", "power_carry", "open_angle", "bridge_gap", "prong_count"]:
+		if kind == "bridge" and int(st.get("_rev", 0)) < 6:
+			for k in ["power_grab", "power_lift", "power_top", "power_carry", "open_angle", "bridge_gap", "prong_count", "bar_friction", "move_speed", "drop_speed", "lift_speed"]:
 				st[k] = d[k]
 			for k in preset:
 				if k in ["bridge_gap"]:
 					st[k] = preset[k]
-			st["_rev"] = 3
+			st["_rev"] = 6
 			machine_prizes.erase(machine_id)
 	if kind == "bridge":
-		machine_settings[machine_id]["_rev"] = 3
+		machine_settings[machine_id]["_rev"] = 6
 	return machine_settings[machine_id]
 
 

@@ -45,6 +45,9 @@ func _ready() -> void:
 	camera.fov = 70
 	camera.near = 0.03
 	camera.current = true
+	camera.far = 80.0
+	# 플레이어(카메라)는 매 프레임 직접 움직이므로 물리 보간에서 제외 – 기계·인형만 보간해 부드럽게
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	head.add_child(camera)
 	ray = RayCast3D.new()
 	ray.target_position = Vector3(0, 0, -2.4)
@@ -91,6 +94,12 @@ func _process(delta: float) -> void:
 		if Input.is_action_pressed("zoom_out"):
 			_add_zoom(-40.0 * delta)
 	camera.fov = lerp(camera.fov, _base_fov() - zoom, min(1.0, delta * 12.0))
+	# 기계 앞 시점: 렌더 프레임마다 부드럽게 따라간다(물리 틱에 묶이면 화면이 떨린다)
+	if mode == Mode.MACHINE and machine and (_cam_tween == null or not _cam_tween.is_running()):
+		var base_xf: Transform3D = _view_cams()[view_index].global_transform
+		var rot := Basis(Vector3.UP, _look_off.x) * Basis(base_xf.basis.x.normalized(), _look_off.y)
+		var xf := Transform3D(rot * base_xf.basis, base_xf.origin)
+		camera.global_transform = camera.global_transform.interpolate_with(xf, 1.0 - exp(-delta * 30.0))
 
 
 func _physics_process(delta: float) -> void:
@@ -243,12 +252,6 @@ func _machine_controls(_delta: float) -> void:
 	if Input.is_action_just_pressed("leave"):
 		leave_machine()
 		return
-	# 고개 돌리기(마우스) 반영
-	if _cam_tween == null or not _cam_tween.is_running():
-		var base_xf: Transform3D = _view_cams()[view_index].global_transform
-		var rot := Basis(Vector3.UP, _look_off.x) * Basis(base_xf.basis.x.normalized(), _look_off.y)
-		var xf := Transform3D(rot * base_xf.basis, base_xf.origin)
-		camera.global_transform = camera.global_transform.interpolate_with(xf, 0.25)
 
 
 func set_ui_open(v: bool) -> void:
