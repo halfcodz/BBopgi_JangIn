@@ -18,6 +18,8 @@ const LAYER_INTERACT := 16
 @export_enum("big", "small") var kind := "big"
 @export var theme_color := Color(1.0, 0.45, 0.66)
 @export var initial_fill := 14
+## 처음 설치할 때의 기본 세팅(이름, 상품 구성, 집게 발 개수 등) – 저장된 설정이 있으면 무시
+@export var preset := {}
 
 var settings: Dictionary
 var ledger: Dictionary
@@ -92,7 +94,7 @@ var player_present := false
 
 
 func _ready() -> void:
-	settings = Game.get_settings(machine_id, kind)
+	settings = Game.get_settings(machine_id, kind, preset)
 	ledger = Game.get_ledger(machine_id)
 	_setup_dims()
 	_build_cabinet()
@@ -208,11 +210,9 @@ func _build_cabinet() -> void:
 	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	glass.albedo_color = Color(0.85, 0.92, 1.0, 0.06)
 	glass.roughness = 0.02
-	glass.metallic_specular = 1.0
-	glass.metallic = 0.2
+	glass.metallic_specular = 0.6
+	glass.metallic = 0.0
 	glass.cull_mode = BaseMaterial3D.CULL_DISABLED
-	glass.rim_enabled = true
-	glass.rim = 0.25
 
 	var hw := W * 0.5
 	var hd := D * 0.5
@@ -429,7 +429,7 @@ func _build_controls() -> void:
 	panel_root.rotation.x = deg_to_rad(10)
 	add_child(panel_root)
 	_box(Vector3(W - 0.04, 0.06, 0.22), Vector3.ZERO, panel_mat, true, panel_root)
-	_box(Vector3(W - 0.04, 0.012, 0.225), Vector3(0, 0.035, 0), _mat(Color(0.95, 0.95, 0.97), 0.25, 0.6), false, panel_root)
+	_box(Vector3(W - 0.04, 0.012, 0.225), Vector3(0, 0.035, 0), _mat(Color(0.62, 0.63, 0.66), 0.3, 0.85), false, panel_root)
 	# 조이스틱
 	var js_x := -0.22 if kind == "big" else -0.15
 	var base_ring := MeshInstance3D.new()
@@ -495,7 +495,8 @@ func _build_controls() -> void:
 	credit_label.font_size = 40
 	credit_label.pixel_size = 0.0011
 	credit_label.modulate = Color(1.0, 0.25, 0.2)
-	credit_label.position = Vector3(-0.07, 0, 0.012)
+	credit_label.position = Vector3(-0.075 if kind == "big" else -0.065, 0, 0.012)
+	credit_label.font_size = 34 if kind == "big" else 28
 	credit_label.shaded = false
 	disp_root.add_child(credit_label)
 	timer_label = Label3D.new()
@@ -503,7 +504,8 @@ func _build_controls() -> void:
 	timer_label.font_size = 40
 	timer_label.pixel_size = 0.0011
 	timer_label.modulate = Color(0.3, 1.0, 0.4)
-	timer_label.position = Vector3(0.08, 0, 0.012)
+	timer_label.position = Vector3(0.085 if kind == "big" else 0.07, 0, 0.012)
+	timer_label.font_size = 34 if kind == "big" else 28
 	timer_label.shaded = false
 	disp_root.add_child(timer_label)
 	# 가격표 스티커(앞 유리 아래쪽)
@@ -514,7 +516,7 @@ func _build_controls() -> void:
 	price_label.outline_size = 14
 	price_label.outline_modulate = Color(0.3, 0.05, 0.15)
 	price_label.modulate = Color(1, 0.95, 0.3)
-	price_label.position = Vector3(0.18 if kind == "big" else 0.12, base_h + 0.12, hd - 0.012)
+	price_label.position = Vector3(ix - (0.17 if kind == "big" else 0.12), glass_top - (0.13 if kind == "big" else 0.1), hd - 0.012)
 	add_child(price_label)
 	# 지폐 투입구
 	var acc_root := Node3D.new()
@@ -642,17 +644,18 @@ func _build_cameras() -> void:
 	var mid_y := base_h + (glass_top - base_h) * 0.42
 	front_cam = Marker3D.new()
 	add_child(front_cam)
-	var eye_h := 1.5 if kind == "big" else 1.45
-	front_cam.position = Vector3(0.0, eye_h, D * 0.5 + 0.62)
-	front_cam.look_at_from_position(front_cam.position, Vector3(0, mid_y - 0.08, -0.02))
+	var eye_h := 1.62 if kind == "big" else 1.5
+	var fp := Vector3(0.0, eye_h, D * 0.5 + (0.95 if kind == "big" else 0.72))
+	front_cam.transform = Transform3D(Basis.looking_at(Vector3(0, mid_y - 0.08, -0.02) - fp), fp)
 	side_cam = Marker3D.new()
 	add_child(side_cam)
-	side_cam.position = Vector3(W * 0.5 + 0.6, eye_h, 0.05)
-	side_cam.look_at_from_position(side_cam.position, Vector3(0, mid_y - 0.08, 0))
+	# 옆 기계에 가리지 않도록 앞쪽 모서리에서 비스듬히 들여다보는 시점
+	var sp := Vector3(W * 0.5 + (0.25 if kind == "big" else 0.18), eye_h - 0.05, D * 0.5 + (0.62 if kind == "big" else 0.5))
+	side_cam.transform = Transform3D(Basis.looking_at(Vector3(0, mid_y - 0.08, 0) - sp), sp)
 	close_cam = Marker3D.new()
 	add_child(close_cam)
-	close_cam.position = Vector3(0.0, base_h + (glass_top - base_h) * 0.55, D * 0.5 + 0.25)
-	close_cam.look_at_from_position(close_cam.position, Vector3(0, base_h + 0.08, -0.05))
+	var cp := Vector3(0.0, base_h + (glass_top - base_h) * 0.55, D * 0.5 + 0.25)
+	close_cam.transform = Transform3D(Basis.looking_at(Vector3(0, base_h + 0.08, -0.05) - cp), cp)
 
 
 # =================================================================== 상품 관리
@@ -706,6 +709,16 @@ func add_prize(id: String, global_pos: Vector3, rot_y: float = 0.0, rng: RandomN
 	return p
 
 
+func _return_to_bed(p: Prize) -> void:
+	if not is_instance_valid(p):
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var lp := _rand_pos_in_bed(rng, 0.12 if kind == "big" else 0.07)
+	lp.y = base_h + 0.3
+	p.teleport_to(to_global(lp), rng.randf() * TAU)
+
+
 func remove_prize(p: Prize) -> void:
 	if p and is_instance_valid(p):
 		p.queue_free()
@@ -753,10 +766,17 @@ func take_prizes_from_bin() -> Array:
 	return taken
 
 
+var _last_game_end := -100000
+
+
 func _on_bin_body(body: Node3D) -> void:
 	var p := body.get_parent()
 	if p is Prize and not p.won:
 		var c := to_local((p as Prize).get_center())
+		# 아무도 플레이하지 않을 때(진열·정리 중) 떨어진 상품은 사장님이 다시 넣어 둔다
+		if not game_active and Time.get_ticks_msec() - _last_game_end > 4000:
+			_return_to_bed.call_deferred(p)
+			return
 		if c.y < base_h - 0.05:
 			p.won = true
 			ledger["payouts"] = int(ledger["payouts"]) + 1
@@ -971,6 +991,7 @@ func _physics_process(delta: float) -> void:
 		State.RESETTING:
 			if phase_t > 0.6:
 				game_active = false
+				_last_game_end = Time.get_ticks_msec()
 				_set_state(State.IDLE)
 				save_layout()
 				if credits > 0:

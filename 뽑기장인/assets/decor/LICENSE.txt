@@ -1,0 +1,4 @@
+Furniture models (trashcan, pottedPlant, plantSmall1, stoolBar, speaker, loungeSofa, cardboardBoxOpen, rugRound)
+from "Furniture Kit" by Kenney (www.kenney.nl)
+License: Creative Commons Zero, CC0 (http://creativecommons.org/publicdomain/zero/1.0/)
+Source mirror: https://github.com/watcharatornkha-svg/cs-quest-models

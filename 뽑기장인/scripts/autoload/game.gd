@@ -129,9 +129,12 @@ func default_settings(kind: String) -> Dictionary:
 	}
 
 
-func get_settings(machine_id: String, kind: String) -> Dictionary:
+func get_settings(machine_id: String, kind: String, preset: Dictionary = {}) -> Dictionary:
 	if not machine_settings.has(machine_id):
-		machine_settings[machine_id] = default_settings(kind)
+		var d := default_settings(kind)
+		for k in preset:
+			d[k] = preset[k]
+		machine_settings[machine_id] = d
 	else:
 		# 새 항목이 생기면 기본값으로 채움
 		var d := default_settings(kind)
