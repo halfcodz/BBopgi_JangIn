@@ -1,0 +1,38 @@
+{
+ "id": "figure_jp",
+ "fabric": "minky",
+ "height": 0.2,
+ "parts": [
+  {
+   "name": "box",
+   "origin": [
+    0.0,
+    0.1,
+    0.0
+   ],
+   "mass": 0.45,
+   "shapes": [
+    {
+     "type": "box",
+     "center": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "half": [
+      0.15,
+      0.1,
+      0.065
+     ],
+     "rot": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ ],
+ "joints": [],
+ "material": "printed"
+}

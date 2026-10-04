@@ -720,3 +720,301 @@ def capsule():
 
 
 MODELS.update({"figure_box": figure_box, "snack_bag": snack_bag, "capsule": capsule})
+
+
+# ======================================================================== 판다 (곰 몸을 쓰고 무늬만 다르게)
+def panda():
+    spec = bear()
+    head_c = np.array([0, 0.214, 0.004])
+    patches = []
+    for side in (1, -1):
+        d = np.array([0.42 * side, 0.16, 0.88])
+        d /= np.linalg.norm(d)
+        patches.append(head_c + d * 0.066)
+
+    def head_mask(p, n):
+        ears = np.zeros(len(p))
+        for sx in (1, -1):
+            ears = np.maximum(ears, 1 - _sm(length(p - np.array([0.054 * sx, 0.271, -0.006])), 0.026, 0.032))
+        eyep = np.zeros(len(p))
+        for c in patches:
+            q = (p - c) @ rot_z(-25 if c[0] > 0 else 25)
+            e = length(q / np.array([0.017, 0.022, 0.02]))
+            eyep = np.maximum(eyep, 1 - _sm(e, 0.9, 1.15))
+        return np.stack([np.maximum(ears, eyep), np.zeros(len(p))], -1)
+
+    def limb_mask(p, n):
+        return np.stack([np.ones(len(p)), np.zeros(len(p))], -1)
+
+    def torso_mask(p, n):
+        # 어깨를 두르는 검은 띠
+        band = (1 - _sm(np.abs(p[:, 1] - 0.14), 0.018, 0.03)) * _sm(np.abs(p[:, 0]), 0.02, 0.05)
+        return np.stack([band, np.zeros(len(p))], -1)
+
+    for part in spec["parts"]:
+        if part.name == "head":
+            part.mask = head_mask
+            # 판다는 주둥이도 흰색, 코는 검정
+        elif part.name.startswith("arm") or part.name.startswith("leg"):
+            part.mask = limb_mask
+        elif part.name == "torso":
+            part.mask = torso_mask
+    spec["id"] = "panda"
+    return spec
+
+
+# ======================================================================== 시바견 (앉은 자세, 말린 꼬리)
+def shiba():
+    tc = np.array([0, 0.082, -0.01])
+
+    def torso(p):
+        d = ellipsoid(p, tc, (0.064, 0.082, 0.07))
+        d = smin(d, ellipsoid(p, (0, 0.07, 0.022), (0.052, 0.06, 0.05)), 0.02)
+        # 말린 꼬리(원환 일부)
+        tail = torus(p, (0, 0.12, -0.08), 0.026, 0.014, axis="x")
+        tail = smax(tail, -(p[:, 1] - 0.1), 0.01)
+        d = smin(d, tail, 0.012)
+        for sx in (1, -1):
+            d = smin(d, round_cone(p, (0.035 * sx, 0.03, 0.03), (0.035 * sx, 0.012, 0.085), 0.02, 0.019), 0.01)
+        d = smax(d, -(p[:, 1] - 0.004), 0.015)
+        return seam(d=d, p=p, normal=(1, 0, 0), offset=0.0)
+
+    def torso_mask(p, n):
+        chest = (1 - _sm(ellipsoid(p, (0, 0.08, 0.05), (0.04, 0.06, 0.04)), -0.004, 0.006)) * _sm(n[:, 2], -0.1, 0.4)
+        tail_under = (1 - _sm(length(p - np.array([0, 0.13, -0.11])), 0.012, 0.02))
+        paws = _sm(p[:, 2], 0.07, 0.085) * (1 - _sm(p[:, 1], 0.03, 0.04))
+        return np.stack([np.maximum(np.maximum(chest, tail_under), paws), np.zeros(len(p))], -1)
+
+    hc = np.array([0, 0.2, 0.005])
+    MZ = np.array([0, 0.185, 0.058])
+
+    def head(p):
+        d = ellipsoid(p, hc, (0.068, 0.06, 0.06))
+        d = smin(d, ellipsoid(p, MZ, (0.032, 0.025, 0.035)), 0.016)
+        for sx in (1, -1):
+            ear = round_cone(p, (0.036 * sx, 0.245, -0.004), (0.05 * sx, 0.285, -0.006), 0.022, 0.006)
+            ear = smax(ear, -(p[:, 2] + 0.016), 0.004)
+            ear = smax(ear, p[:, 2] - 0.012, 0.004)
+            d = smin(d, ear, 0.01)
+        return seam(d=d, p=p, normal=(1, 0, 0), offset=0.0, mask=_sm(p[:, 2], 0.02, 0.0))
+
+    def head_mask(p, n):
+        mz = 1 - _sm(ellipsoid(p, MZ + [0, -0.008, -0.004], (0.036, 0.024, 0.04)), -0.002, 0.004)
+        cheeks = np.zeros(len(p))
+        for sx in (1, -1):
+            cheeks = np.maximum(cheeks, 1 - _sm(length(p - np.array([0.042 * sx, 0.175, 0.04])), 0.012, 0.02))
+            # 눈썹 점
+            cheeks = np.maximum(cheeks, (1 - _sm(length(p - np.array([0.025 * sx, 0.228, 0.055])), 0.004, 0.007)))
+        inner_ear = np.zeros(len(p))
+        for sx in (1, -1):
+            inner_ear = np.maximum(inner_ear, (1 - _sm(length((p - np.array([0.043 * sx, 0.262, 0.0])) * [1, 0.7, 1]), 0.008, 0.013)) * _sm(n[:, 2], 0.3, 0.7))
+        return np.stack([np.maximum(np.maximum(mz, cheeks), inner_ear), np.zeros(len(p))], -1)
+
+    neck = np.array([0, 0.155, 0.0])
+    hp = Part("head", head, (hc - [0.09, 0.08, 0.09], hc + [0.09, 0.1, 0.1]), neck, 0.08,
+              [sph_shape(hc - neck, 0.06), sph_shape(MZ - neck, 0.027)], head_mask, faces=9000)
+    acc = eyes_on(head, hc, [(0.42, 0.16, 0.89), (-0.42, 0.16, 0.89)], 0.0065)
+    nt, nn = surface_point(head, MZ, (0, 0.3, 1))
+    nc = nt + nn * 0.0015
+    acc.append(sdf_blob_mesh("nose", lambda p: ellipsoid(p, nc, (0.011, 0.0075, 0.006), rot_x(-20)), nc, 0.014, THREAD_DARK, "eye"))
+    mt, _ = surface_point(head, MZ, (0, -0.15, 1))
+    acc.append(thread_curve(head, [nt + [0, -0.006, 0], mt + [0, -0.002, 0]], "mouth_c"))
+    acc.append(thread_curve(head, [mt + [0, -0.002, 0], mt + [0.009, -0.006, -0.003], mt + [0.016, -0.002, -0.007]], "mouth_r"))
+    acc.append(thread_curve(head, [mt + [0, -0.002, 0], mt + [-0.009, -0.006, -0.003], mt + [-0.016, -0.002, -0.007]], "mouth_l"))
+    hp.accessories = acc
+    tp = Part("torso", torso, (tc - [0.09, 0.09, 0.13], tc + [0.09, 0.1, 0.12]), tc, 0.14,
+              [cap_shape([0, -0.05, 0.01], [0, 0.04, 0.0], 0.062), sph_shape([0, 0.04, -0.075], 0.03)], torso_mask, faces=8000)
+    parts = [tp, hp]
+    joints = [joint("torso", "head", neck, swing=28, twist=30, stiffness=0.9, damping=0.08)]
+    for side in (1, -1):
+        sh = np.array([0.045 * side, 0.12, 0.03])
+        paw = np.array([0.05 * side, 0.03, 0.07])
+        def arm(p, sh=sh, paw=paw):
+            return round_cone(p, sh, paw, 0.019, 0.02)
+        def arm_mask(p, n, paw=paw):
+            return np.stack([1 - _sm(p[:, 1], 0.045, 0.06), np.zeros(len(p))], -1)
+        nm = "arm_r" if side > 0 else "arm_l"
+        parts.append(Part(nm, arm, (np.minimum(sh, paw) - 0.03, np.maximum(sh, paw) + 0.03), sh, 0.02,
+                          [cap_shape((paw - sh) * 0.2, paw - sh, 0.018)], arm_mask, faces=2000))
+        joints.append(joint("torso", nm, sh, swing=40, twist=20, stiffness=0.5))
+    return {"id": "shiba", "parts": parts, "joints": joints, "fabric": "minky", "height": 0.29}
+
+
+# ======================================================================== 상어 (길쭉한 몸 + 꼬리 관절)
+def shark():
+    def body(p):
+        d = round_cone(p, (0, 0.06, 0.11), (0, 0.065, -0.07), 0.052, 0.058)
+        d = smin(d, ellipsoid(p, (0, 0.06, 0.12), (0.05, 0.045, 0.06)), 0.03)
+        fin = ellipsoid(p, (0, 0.13, -0.01), (0.008, 0.045, 0.03), rot_x(-25))
+        fin = smax(fin, -(p[:, 1] - 0.1), 0.006)
+        d = smin(d, fin, 0.012)
+        for sx in (1, -1):
+            pf = ellipsoid(p, (0.06 * sx, 0.035, 0.04), (0.04, 0.008, 0.026), rot_z(20 * sx) @ rot_y(-25 * sx))
+            d = smin(d, pf, 0.01)
+        d = seam(d=d, p=p, normal=(0, 1, 0), offset=0.055, mask=_sm(p[:, 2], -0.1, -0.09))
+        return d
+
+    def body_mask(p, n):
+        belly = _sm(-n[:, 1], -0.25, 0.25) * _sm(-(p[:, 1] - 0.06), -0.01, 0.01)
+        mouth = (1 - _sm(ellipsoid(p, (0, 0.04, 0.16), (0.03, 0.006, 0.02)), 0.0, 0.003))
+        return np.stack([belly, mouth * 0.95], -1)
+
+    def tail(p):
+        d = round_cone(p, (0, 0.065, -0.07), (0, 0.075, -0.18), 0.05, 0.016)
+        up = ellipsoid(p, (0, 0.11, -0.2), (0.008, 0.045, 0.025), rot_x(35))
+        dn = ellipsoid(p, (0, 0.045, -0.195), (0.008, 0.03, 0.02), rot_x(-35))
+        return smin(smin(d, up, 0.012), dn, 0.012)
+
+    def tail_mask(p, n):
+        return np.stack([_sm(-n[:, 1], -0.2, 0.3) * _sm(-(p[:, 1] - 0.065), -0.008, 0.008), np.zeros(len(p))], -1)
+
+    c = np.array([0, 0.06, 0.03])
+    bp = Part("body", body, ([-0.12, -0.01, -0.1], [0.12, 0.2, 0.2]), c, 0.2,
+              [cap_shape([0, 0, 0.07], [0, 0.005, -0.09], 0.05)], body_mask, faces=9000)
+    acc = eyes_on(body, (0, 0.07, 0.1), [(0.7, 0.25, 0.65), (-0.7, 0.25, 0.65)], 0.0065)
+    m0, _ = surface_point(body, (0, 0.04, 0.12), (0, -0.05, 1))
+    bp.accessories = acc
+    t0 = np.array([0, 0.065, -0.07])
+    tp = Part("tail", tail, ([-0.06, -0.0, -0.24], [0.06, 0.18, -0.03]), t0, 0.06,
+              [cap_shape([0, 0, -0.01], [0, 0.008, -0.1], 0.03), sph_shape([0, 0.045, -0.13], 0.02)], tail_mask, faces=4000)
+    joints = [joint("body", "tail", t0, swing=30, twist=15, stiffness=0.6)]
+    return {"id": "shark", "parts": [bp, tp], "joints": joints, "fabric": "minky", "height": 0.15}
+
+
+# ======================================================================== 개구리
+def frog():
+    c = np.array([0, 0.06, 0])
+
+    def body(p):
+        d = ellipsoid(p, c, (0.085, 0.062, 0.075))
+        for sx in (1, -1):
+            d = smin(d, sphere(p, (0.04 * sx, 0.115, 0.03), 0.03), 0.02)
+            d = smin(d, ellipsoid(p, (0.07 * sx, 0.012, 0.055), (0.03, 0.012, 0.03)), 0.01)
+            d = smin(d, ellipsoid(p, (0.07 * sx, 0.015, -0.035), (0.035, 0.016, 0.04)), 0.012)
+        d = smax(d, -(p[:, 1]), 0.012)
+        return seam(d=d, p=p, normal=(0, 1, 0.3), offset=0.06)
+
+    def mask(p, n):
+        belly = (1 - _sm(ellipsoid(p, (0, 0.045, 0.05), (0.06, 0.04, 0.045)), -0.003, 0.006)) * _sm(n[:, 2], 0.0, 0.4) * _sm(-n[:, 1], -0.6, 0.0)
+        blush = np.zeros(len(p))
+        for sx in (1, -1):
+            blush = np.maximum(blush, 1 - _sm(length(p - np.array([0.058 * sx, 0.07, 0.055])), 0.008, 0.014))
+        return np.stack([belly, blush * 0.9], -1)
+
+    bp = Part("body", body, (c - [0.12, 0.07, 0.11], c + [0.12, 0.11, 0.11]), c, 0.12, [], mask, faces=9000)
+    bp.shapes = [{"type": "convex", "points": (np.array(hull_points(body, c - [0.12, 0.07, 0.11], c + [0.12, 0.11, 0.11], voxel=0.004, count=48)) - c).tolist()}]
+    acc = []
+    for sx in (1, -1):
+        e = np.array([0.04 * sx, 0.115, 0.03])
+        pos, nrm = surface_point(body, e, (0.15 * sx, 0.25, 1))
+        acc.append((f"eye_{sx}", dome(pos, nrm, 0.012, iris=(0.15, 0.1, 0.05)), "eye"))
+    m0, _ = surface_point(body, c, (0, 0.15, 1))
+    acc.append(thread_curve(body, [m0 + [-0.03, 0.006, -0.012], m0 + [-0.015, -0.004, -0.002], m0, m0 + [0.015, -0.004, -0.002], m0 + [0.03, 0.006, -0.012]], "smile", samples=24, radius=0.0013))
+    bp.accessories = acc
+    return {"id": "frog", "parts": [bp], "joints": [], "fabric": "minky", "height": 0.15}
+
+
+# ======================================================================== 햄스터 (작은 기계)
+def hamster():
+    c = np.array([0, 0.04, 0])
+
+    def body(p):
+        d = ellipsoid(p, c, (0.042, 0.04, 0.045))
+        for sx in (1, -1):
+            d = smin(d, sphere(p, (0.028 * sx, 0.04, 0.025), 0.022), 0.015)  # 볼 주머니
+            ear = ellipsoid(p, (0.026 * sx, 0.077, -0.004), (0.012, 0.012, 0.005))
+            d = smin(d, ear, 0.006)
+            d = smin(d, sphere(p, (0.015 * sx, 0.015, 0.04), 0.008), 0.004)
+        d = smax(d, -(p[:, 1]), 0.008)
+        return d
+
+    def mask(p, n):
+        belly = (1 - _sm(ellipsoid(p, (0, 0.028, 0.03), (0.034, 0.03, 0.03)), -0.002, 0.004)) * _sm(n[:, 2], -0.2, 0.3)
+        cheeks = np.zeros(len(p))
+        for sx in (1, -1):
+            cheeks = np.maximum(cheeks, 1 - _sm(length(p - np.array([0.034 * sx, 0.04, 0.032])), 0.012, 0.018))
+        inner = np.zeros(len(p))
+        for sx in (1, -1):
+            inner = np.maximum(inner, (1 - _sm(length(p - np.array([0.026 * sx, 0.078, 0.0])), 0.005, 0.008)) * _sm(n[:, 2], 0.3, 0.7))
+        return np.stack([np.maximum(belly, cheeks), inner], -1)
+
+    bp = Part("body", body, (c - 0.06, c + 0.06), c, 0.04, [], mask, faces=6000, voxel=0.0007)
+    bp.shapes = [sph_shape([0, 0, 0], 0.04)]
+    acc = eyes_on(body, (0, 0.05, 0.0), [(0.4, 0.2, 0.9), (-0.4, 0.2, 0.9)], 0.0042)
+    nt, nn = surface_point(body, (0, 0.04, 0.0), (0, 0.05, 1))
+    acc.append(sdf_blob_mesh("nose", lambda p: sphere(p, nt + nn * 0.001, 0.0028), nt, 0.005, (0.95, 0.55, 0.6), "thread", voxel=0.0003, faces=300))
+    bp.accessories = acc
+    return {"id": "hamster", "parts": [bp], "joints": [], "fabric": "minky", "height": 0.085}
+
+
+# ======================================================================== 고래 (작은 기계)
+def whale():
+    def body(p):
+        d = round_cone(p, (0, 0.04, 0.03), (0, 0.035, -0.05), 0.04, 0.02)
+        d = smin(d, sphere(p, (0, 0.042, 0.035), 0.042), 0.02)
+        for sx in (1, -1):
+            fl = ellipsoid(p, (0.025 * sx, 0.04, -0.085), (0.026, 0.006, 0.014), rot_y(-30 * sx))
+            d = smin(d, fl, 0.008)
+            fin = ellipsoid(p, (0.04 * sx, 0.02, 0.03), (0.016, 0.005, 0.01), rot_z(25 * sx))
+            d = smin(d, fin, 0.006)
+        d = smax(d, -(p[:, 1]), 0.006)
+        return d
+
+    def mask(p, n):
+        belly = _sm(-n[:, 1], -0.3, 0.2) * _sm(-(p[:, 1] - 0.035), -0.006, 0.006)
+        blush = np.zeros(len(p))
+        for sx in (1, -1):
+            blush = np.maximum(blush, 1 - _sm(length(p - np.array([0.03 * sx, 0.035, 0.062])), 0.005, 0.009))
+        return np.stack([belly, blush * 0.9], -1)
+
+    c = np.array([0, 0.04, 0])
+    bp = Part("body", body, ([-0.07, -0.01, -0.12], [0.07, 0.1, 0.09]), c, 0.04, [], mask, faces=6000, voxel=0.0008)
+    bp.shapes = [sph_shape([0, 0.002, 0.03], 0.04), cap_shape([0, 0, 0.0], [0, -0.003, -0.06], 0.022)]
+    acc = eyes_on(body, (0, 0.045, 0.03), [(0.62, 0.15, 0.77), (-0.62, 0.15, 0.77)], 0.004)
+    m0, _ = surface_point(body, (0, 0.03, 0.03), (0, -0.2, 1))
+    acc.append(thread_curve(body, [m0 + [-0.012, 0.002, -0.004], m0, m0 + [0.012, 0.002, -0.004]], "smile", radius=0.0009, samples=12))
+    bp.accessories = acc
+    return {"id": "whale", "parts": [bp], "joints": [], "fabric": "minky", "height": 0.09}
+
+
+# ======================================================================== 일본식 프라이즈 피규어 상자
+def _uv_box_atlas(size, rects):
+    """rects: front/back/right/left/top/bottom → (u0, v0, u1, v1) 이미지 좌표(위가 0)."""
+    hx, hy, hz = np.asarray(size) / 2
+    faces = {
+        "front": ((0, 0, 1), [(-hx, -hy, hz), (hx, -hy, hz), (hx, hy, hz), (-hx, hy, hz)]),
+        "back": ((0, 0, -1), [(hx, -hy, -hz), (-hx, -hy, -hz), (-hx, hy, -hz), (hx, hy, -hz)]),
+        "right": ((1, 0, 0), [(hx, -hy, hz), (hx, -hy, -hz), (hx, hy, -hz), (hx, hy, hz)]),
+        "left": ((-1, 0, 0), [(-hx, -hy, -hz), (-hx, -hy, hz), (-hx, hy, hz), (-hx, hy, -hz)]),
+        "top": ((0, 1, 0), [(-hx, hy, hz), (hx, hy, hz), (hx, hy, -hz), (-hx, hy, -hz)]),
+        "bottom": ((0, -1, 0), [(-hx, -hy, -hz), (hx, -hy, -hz), (hx, -hy, hz), (-hx, -hy, hz)]),
+    }
+    V, N, UV, F = [], [], [], []
+    for k, (nrm, cs) in faces.items():
+        u0, v0, u1, v1 = rects[k]
+        b = len(V)
+        uvs = [(u0, 1 - v1), (u1, 1 - v1), (u1, 1 - v0), (u0, 1 - v0)]
+        for cc, uv in zip(cs, uvs):
+            V.append(cc)
+            N.append(nrm)
+            UV.append(uv)
+        F += [[b, b + 1, b + 2], [b, b + 2, b + 3]]
+    m = trimesh.Trimesh(np.array(V), np.array(F), vertex_normals=np.array(N), process=False)
+    m.visual = trimesh.visual.TextureVisuals(uv=np.array(UV))
+    return m
+
+
+JP_RECTS = {"front": (0.0, 0.0, 0.6, 0.4), "back": (0.0, 0.4, 0.6, 0.8), "top": (0.0, 0.8, 0.6, 1.0),
+            "bottom": (0.0, 0.8, 0.6, 1.0), "right": (0.6, 0.0, 0.8, 0.4), "left": (0.8, 0.0, 1.0, 0.4)}
+
+
+def figure_jp():
+    size = (0.30, 0.20, 0.13)
+    m = _uv_box_atlas(size, JP_RECTS)
+    m.apply_translation([0, size[1] / 2, 0])
+    p = MeshPart("box", m, [0, size[1] / 2, 0], 0.45, [box_shape([0, 0, 0], np.array(size) / 2)])
+    return {"id": "figure_jp", "parts": [p], "joints": [], "material": "printed", "height": size[1]}
+
+
+MODELS.update({"panda": panda, "shiba": shiba, "shark": shark, "frog": frog, "hamster": hamster,
+               "whale": whale, "figure_jp": figure_jp})

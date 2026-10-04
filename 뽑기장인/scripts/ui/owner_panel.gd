@@ -12,6 +12,8 @@ var tab_claw: VBoxContainer
 var tab_machine: VBoxContainer
 var tab_stock: VBoxContainer
 var tab_ledger: VBoxContainer
+var tab_easy: VBoxContainer
+var tab_adv: VBoxContainer
 var place_id := ""
 var place_mode := false
 var place_label: Label
@@ -42,11 +44,21 @@ func _ready() -> void:
 	tabs = TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(tabs)
-	tab_claw = _scroll_tab("집게 힘·확률")
-	tab_machine = _scroll_tab("기계 설정")
-	tab_stock = _scroll_tab("상품 진열")
-	tab_ledger = _scroll_tab("매출 장부")
-	tabs.tab_changed.connect(func(_i): _refresh_ledger())
+	tab_easy = _scroll_tab("① 쉬운 설정")
+	tab_stock = _scroll_tab("② 상품")
+	tab_ledger = _scroll_tab("③ 매출")
+	tab_adv = _scroll_tab("⚙ 고급")
+	tab_adv.add_child(UIKit.label("익숙해지면 숫자로 세세하게 조절해 보세요.", 16, Color(0.45, 0.35, 0.45)))
+	tab_adv.add_child(UIKit.title("집게 힘·확률", 22))
+	tab_claw = VBoxContainer.new()
+	tab_adv.add_child(tab_claw)
+	tab_adv.add_child(HSeparator.new())
+	tab_adv.add_child(UIKit.title("기계 설정", 22))
+	tab_machine = VBoxContainer.new()
+	tab_adv.add_child(tab_machine)
+	tabs.tab_changed.connect(func(_i):
+		_refresh_ledger()
+		_build_easy_tab())
 
 
 func _scroll_tab(title: String) -> VBoxContainer:
@@ -65,7 +77,7 @@ func open_for(target) -> void:
 	_machines = shop.machines if shop else []
 	machine_pick.clear()
 	for m in _machines:
-		machine_pick.add_item("%s  (%s)" % [m.settings.get("name", m.machine_id), "큰 기계" if m.kind == "big" else "작은 기계"])
+		machine_pick.add_item("%s  (%s)" % [m.settings.get("name", m.machine_id), {"big": "큰 기계", "small": "작은 기계", "bridge": "피규어 기계"}.get(m.kind, m.kind)])
 	var pick: ClawMachine = target if target is ClawMachine else (_machines[0] if not _machines.is_empty() else null)
 	if pick:
 		machine_pick.select(_machines.find(pick))
@@ -74,6 +86,7 @@ func open_for(target) -> void:
 
 func _select(m: ClawMachine) -> void:
 	machine = m
+	_build_easy_tab()
 	_build_claw_tab()
 	_build_machine_tab()
 	_build_stock_tab()
@@ -139,6 +152,82 @@ func _check(parent: Container, title: String, key: String) -> void:
 	parent.add_child(c)
 
 
+# ------------------------------------------------------------------ 쉬운 설정
+const LEVELS := [
+	["😊 쉬움", "연습용 · 집게가 아주 세요", 100, 100, 100, 100, "skill", 10],
+	["🙂 보통", "동네 뽑기방 느낌", 80, 70, 30, 25, "count", 15],
+	["😤 어려움", "정상에서 힘이 쭉 빠져요", 65, 50, 20, 15, "count", 25],
+	["💸 짠물", "매출이 쌓여야 겨우 뽑혀요", 55, 40, 12, 8, "revenue", 30],
+]
+
+
+func _current_level() -> int:
+	var st := machine.settings
+	for i in LEVELS.size():
+		var L: Array = LEVELS[i]
+		if int(st["power_grab"]) == L[2] and int(st["power_lift"]) == L[3] and int(st["power_top"]) == L[4] and int(st["power_carry"]) == L[5] and String(st["payout_mode"]) == L[6]:
+			return i
+	return -1
+
+
+func _big_choice(parent: Container, title: String, items: Array, current: int, cb: Callable, cols := 2) -> void:
+	parent.add_child(UIKit.title(title, 22))
+	var g := GridContainer.new()
+	g.columns = cols
+	g.add_theme_constant_override("h_separation", 8)
+	g.add_theme_constant_override("v_separation", 8)
+	parent.add_child(g)
+	for i in items.size():
+		var txt: String = items[i]
+		var col := UIKit.PINK if i == current else Color(0.82, 0.72, 0.8)
+		var b := UIKit.button(("✔ " if i == current else "") + txt, func():
+			cb.call(i)
+			_build_easy_tab(), col)
+		b.custom_minimum_size = Vector2(440.0 / cols - 6.0, 58 if txt.contains("\n") else 46)
+		g.add_child(b)
+
+
+func _build_easy_tab() -> void:
+	if machine == null or tab_easy == null:
+		return
+	_clear(tab_easy)
+	tab_easy.add_child(UIKit.label("버튼만 누르면 바로 적용돼요. 기계가 쉬고 있을 때 바꾸는 게 좋아요.", 16, Color(0.45, 0.35, 0.45)))
+	var lv := []
+	for L in LEVELS:
+		lv.append("%s\n%s" % [L[0], L[1]])
+	_big_choice(tab_easy, "뽑기 난이도", lv, _current_level(), func(i):
+		var L: Array = LEVELS[i]
+		_apply("power_grab", L[2])
+		_apply("power_lift", L[3])
+		_apply("power_top", L[4])
+		_apply("power_carry", L[5])
+		_apply("payout_mode", L[6])
+		if L[6] == "revenue":
+			_apply("payout_revenue", L[7] * 1000)
+		else:
+			_apply("payout_every", L[7])
+		hud.show_toast("난이도를 '%s'(으)로 바꿨어요" % String(L[0]).substr(2)))
+	var per := int(machine.settings["plays_per_1000"])
+	_big_choice(tab_easy, "가격", ["1,000원에 1판", "1,000원에 2판", "1,000원에 3판"], per - 1, func(i):
+		_apply("plays_per_1000", i + 1)
+		_apply("bonus_5000", (i + 1) * 6), 3)
+	var times := [15, 30, 45, 60]
+	_big_choice(tab_easy, "제한 시간", ["15초", "30초", "45초", "60초"], times.find(int(machine.settings["timer_sec"])), func(i): _apply("timer_sec", times[i]), 4)
+	var modes := ["joystick", "2button"]
+	_big_choice(tab_easy, "조작 방법", ["🕹 조이스틱 + 버튼", "🔘 버튼 2개(→ 후 ↑)"], modes.find(String(machine.settings["control_mode"])), func(i): _apply("control_mode", modes[i]))
+	_big_choice(tab_easy, "집게 발", ["3발 집게", "2발 집게"], 0 if int(machine.settings["prong_count"]) == 3 else 1, func(i): _apply("prong_count", 3 if i == 0 else 2))
+	var sways := [0.0, 0.5, 0.9]
+	var cur_sway := 0
+	var sw := float(machine.settings["sway"])
+	cur_sway = 0 if sw < 0.25 else (1 if sw < 0.7 else 2)
+	_big_choice(tab_easy, "줄 흔들림", ["없음", "보통", "많이"], cur_sway, func(i): _apply("sway", sways[i]), 3)
+	if machine is BridgeMachine:
+		var gaps := [0.15, 0.17, 0.19]
+		var g: float = float(machine.settings.get("bridge_gap", 0.17))
+		var cg := 0 if g < 0.16 else (1 if g < 0.18 else 2)
+		_big_choice(tab_easy, "봉(다리) 간격", ["좁게(어려움)", "보통", "넓게(쉬움)"], cg, func(i): _apply("bridge_gap", gaps[i]), 3)
+
+
 # ------------------------------------------------------------------ 집게 힘·확률
 func _build_claw_tab() -> void:
 	_clear(tab_claw)
@@ -200,69 +289,60 @@ func _build_machine_tab() -> void:
 # ------------------------------------------------------------------ 상품 진열
 func _build_stock_tab() -> void:
 	_clear(tab_stock)
-	place_label = UIKit.label("", 18, UIKit.PINK_DARK)
-	place_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	place_label.custom_minimum_size = Vector2(440, 0)
-	tab_stock.add_child(place_label)
-	stock_label = UIKit.label("", 18)
+	stock_label = UIKit.title("", 22)
 	tab_stock.add_child(stock_label)
-	var tg := CheckButton.new()
-	tg.text = "클릭해서 놓기 모드 (왼쪽 클릭: 놓기 / 오른쪽 클릭: 빼기)"
-	tg.button_pressed = place_mode
-	tg.toggled.connect(func(b):
-		place_mode = b
-		_update_place_label())
-	tab_stock.add_child(tg)
-	tab_stock.add_child(UIKit.label("상품 고르기 (원가)", 19))
+	var bridge := machine is BridgeMachine
+	var row := HBoxContainer.new()
+	tab_stock.add_child(row)
+	if bridge:
+		row.add_child(UIKit.button("🎁 피규어 다시 올리기", func():
+			machine.clear_prizes()
+			await get_tree().process_frame
+			machine.fill_random(1)
+			_after_stock()))
+	else:
+		row.add_child(UIKit.button("🎲 랜덤으로 10개 채우기", func():
+			machine.fill_random(10)
+			_after_stock()))
+		row.add_child(UIKit.button("툭툭 정리", func():
+			for p in machine.get_prizes():
+				p.wake()
+				for bd in p.bodies:
+					bd.apply_central_impulse(Vector3(randf_range(-0.2, 0.2), 0.5, randf_range(-0.2, 0.2)) * bd.mass)
+			hud.show_toast("기계를 툭툭 쳐서 인형들을 정리했어요")))
+	tab_stock.add_child(UIKit.button("모두 비우기", func():
+		machine.clear_prizes()
+		await get_tree().process_frame
+		_after_stock(), Color(0.6, 0.55, 0.62)))
+	tab_stock.add_child(HSeparator.new())
+	tab_stock.add_child(UIKit.title("하나씩 넣기", 22))
+	tab_stock.add_child(UIKit.label("누를 때마다 기계 안 빈자리에 1개씩 들어가요 (괄호 = 사장님 원가)", 16, Color(0.45, 0.35, 0.45)))
 	var grid := GridContainer.new()
 	grid.columns = 2
 	tab_stock.add_child(grid)
 	var ids := PrizeCatalog.ids_for(machine.kind)
 	for id in ids:
-		var b := UIKit.button("%s\n%s" % [PrizeCatalog.display_name(id), Game.won(PrizeCatalog.cost(id))], func():
+		var b := UIKit.button("+ %s\n(%s)" % [PrizeCatalog.display_name(id), Game.won(PrizeCatalog.cost(id))], func():
 			place_id = id
-			_update_place_label(), UIKit.SKY if machine.kind == "small" else UIKit.PINK)
-		b.custom_minimum_size = Vector2(215, 56)
+			if bridge:
+				machine.fill_random(1, [id])
+			else:
+				machine.fill_random(1, [id])
+			_after_stock(), UIKit.SKY if machine.kind == "small" else UIKit.PINK)
+		b.custom_minimum_size = Vector2(215, 58)
 		grid.add_child(b)
-	var row := HBoxContainer.new()
-	tab_stock.add_child(row)
-	row.add_child(UIKit.button("선택 상품 5개 넣기", func():
-		if place_id == "":
-			hud.show_toast("먼저 상품을 고르세요")
-			return
-		machine.fill_random(5, [place_id])
-		_after_stock()))
-	row.add_child(UIKit.button("랜덤 10개 채우기", func():
-		machine.fill_random(10)
-		_after_stock()))
-	var row2 := HBoxContainer.new()
-	tab_stock.add_child(row2)
-	row2.add_child(UIKit.button("모두 비우기", func():
-		machine.clear_prizes()
-		await get_tree().process_frame
-		_after_stock(), Color(0.6, 0.55, 0.62)))
-	row2.add_child(UIKit.button("흔들어 정리하기", func():
-		for p in machine.get_prizes():
-			p.wake()
-			for b in p.bodies:
-				b.apply_central_impulse(Vector3(randf_range(-0.2, 0.2), 0.5, randf_range(-0.2, 0.2)) * b.mass)
-		hud.show_toast("기계를 툭툭 쳐서 인형들을 정리했어요")))
-	tab_stock.add_child(UIKit.label("기계에 넣을 상품 종류(랜덤 채우기용)", 18))
-	for id in ids:
-		var c := CheckBox.new()
-		c.text = PrizeCatalog.display_name(id)
-		var cur: Array = machine.settings.get("prize_ids", [])
-		c.button_pressed = id in cur
-		c.toggled.connect(func(b):
-			var arr: Array = machine.settings.get("prize_ids", []).duplicate()
-			if b and not id in arr:
-				arr.append(id)
-			elif not b:
-				arr.erase(id)
-			if arr.is_empty():
-				arr = [id]
-			_apply("prize_ids", arr))
-		tab_stock.add_child(c)
+	tab_stock.add_child(HSeparator.new())
+	var tg := CheckButton.new()
+	tg.text = "직접 놓기: 위에서 고른 상품을 기계 안 클릭한 곳에 놓기\n(오른쪽 클릭 = 빼기)"
+	tg.button_pressed = place_mode
+	tg.toggled.connect(func(on):
+		place_mode = on
+		_update_place_label())
+	tab_stock.add_child(tg)
+	place_label = UIKit.label("", 16, UIKit.PINK_DARK)
+	place_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	place_label.custom_minimum_size = Vector2(440, 0)
+	tab_stock.add_child(place_label)
 	_update_place_label()
 
 
@@ -278,11 +358,13 @@ func _update_place_label() -> void:
 	var worth := 0
 	for p in machine.get_prizes():
 		worth += p.cost
-	stock_label.text = "현재 %d개 진열 · 진열 원가 %s" % [n, Game.won(worth)]
-	if place_id == "":
-		place_label.text = "상품을 고른 뒤 '클릭해서 놓기'를 켜고 기계 안을 클릭하세요."
+	stock_label.text = "지금 %d개 들어 있어요 (원가 %s)" % [n, Game.won(worth)]
+	if not place_mode:
+		place_label.text = ""
+	elif place_id == "":
+		place_label.text = "먼저 위에서 상품을 하나 누르세요."
 	else:
-		place_label.text = "선택: %s %s" % [PrizeCatalog.display_name(place_id), "· 기계 안을 클릭하면 놓아요" if place_mode else "(클릭해서 놓기 꺼짐)"]
+		place_label.text = "선택: %s · 기계 안을 클릭하면 놓아요" % PrizeCatalog.display_name(place_id)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -317,6 +399,21 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 # ------------------------------------------------------------------ 매출 장부
+func _tile(title: String, value: String) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(1.0, 0.9, 0.94)
+	sb.set_corner_radius_all(12)
+	sb.set_content_margin_all(10)
+	p.add_theme_stylebox_override("panel", sb)
+	p.custom_minimum_size = Vector2(215, 74)
+	var v := VBoxContainer.new()
+	p.add_child(v)
+	v.add_child(UIKit.label(title, 16))
+	v.add_child(UIKit.title(value, 24))
+	return p
+
+
 func _refresh_ledger() -> void:
 	if tab_ledger == null or machine == null:
 		return
@@ -325,16 +422,25 @@ func _refresh_ledger() -> void:
 	var rev := int(lg["revenue"])
 	var cost := int(lg["payout_cost"])
 	var rate := (float(cost) / rev * 100.0) if rev > 0 else 0.0
-	var txt := "[%s]\n매출 %s · %d판\n배출 %d개 (원가 %s)\n순이익 %s · 원가율 %.1f%%\n" % [
-		machine.settings["name"], Game.won(rev), int(lg["plays"]), int(lg["payouts"]), Game.won(cost), Game.won(rev - cost), rate]
+	tab_ledger.add_child(UIKit.title(String(machine.settings["name"]), 22))
+	var g := GridContainer.new()
+	g.columns = 2
+	g.add_theme_constant_override("h_separation", 8)
+	g.add_theme_constant_override("v_separation", 8)
+	tab_ledger.add_child(g)
+	g.add_child(_tile("💰 매출", Game.won(rev)))
+	g.add_child(_tile("🎮 플레이", "%d판" % int(lg["plays"])))
+	g.add_child(_tile("🧸 나간 상품", "%d개" % int(lg["payouts"])))
+	g.add_child(_tile("📈 순이익", Game.won(rev - cost)))
+	var txt := ""
 	match String(machine.settings["payout_mode"]):
 		"count":
-			txt += "강집게까지 %d판 남음" % max(0, int(machine.settings["payout_every"]) - int(lg["plays_since_payout"]))
+			txt = "다음 강집게까지 %d판 남았어요" % max(0, int(machine.settings["payout_every"]) - int(lg["plays_since_payout"]))
 		"revenue":
-			txt += "강집게까지 매출 %s 남음" % Game.won(max(0, int(machine.settings["payout_revenue"]) - int(lg["revenue_since_payout"])))
+			txt = "다음 강집게까지 매출 %s 남았어요" % Game.won(max(0, int(machine.settings["payout_revenue"]) - int(lg["revenue_since_payout"])))
 		_:
-			txt += "실력 모드(강집게 없음)"
-	tab_ledger.add_child(UIKit.label(txt, 20))
+			txt = "실력 모드라 강집게가 없어요"
+	tab_ledger.add_child(UIKit.label(txt + "  (원가율 %.0f%%)" % rate, 18))
 	tab_ledger.add_child(HSeparator.new())
 	var total_rev := 0
 	var total_cost := 0

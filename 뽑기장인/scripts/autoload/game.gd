@@ -59,7 +59,10 @@ func _register_inputs() -> void:
 	_add_key("insert_1000", [KEY_B])
 	_add_key("insert_5000", [KEY_N])
 	_add_key("toggle_view", [KEY_C])
-	_add_key("leave", [KEY_Q, KEY_ESCAPE])
+	_add_key("leave", [KEY_Q])
+	_add_key("menu", [KEY_ESCAPE])
+	_add_key("zoom_in", [KEY_EQUAL, KEY_KP_ADD])
+	_add_key("zoom_out", [KEY_MINUS, KEY_KP_SUBTRACT])
 	_add_key("owner_mode", [KEY_F1, KEY_TAB])
 	_add_key("collection", [KEY_I])
 	_add_key("help", [KEY_H])
@@ -104,17 +107,30 @@ func change_bill(kind: String) -> bool:
 
 # ------------------------------------------------------------------ 기계 설정
 func default_settings(kind: String) -> Dictionary:
+	if kind == "bridge":
+		return {
+			"name": "일본식 피규어 뽑기",
+			"plays_per_1000": 1, "bonus_5000": 6, "accept_5000": true,
+			"timer_sec": 30, "control_mode": "2button", "prong_count": 2,
+			"power_grab": 75, "power_lift": 65, "power_top": 50, "power_carry": 40,
+			"top_drop_delay": 0.3,
+			"payout_mode": "skill", "payout_every": 20, "payout_revenue": 20000, "strong_power": 100,
+			"move_speed": 0.18, "drop_speed": 0.16, "lift_speed": 0.14, "sway": 0.35,
+			"drop_depth": 100, "open_angle": 52, "auto_drop": true, "start_from_home": true,
+			"bridge_gap": 0.17,
+			"prize_ids": ["jp_figure_a", "jp_figure_b"],
+		}
 	if kind == "small":
 		return {
 			"name": "미니 인형뽑기",
 			"plays_per_1000": 2, "bonus_5000": 12, "accept_5000": true,
 			"timer_sec": 25, "control_mode": "joystick", "prong_count": 3,
-			"power_grab": 70, "power_lift": 60, "power_top": 35, "power_carry": 30,
+			"power_grab": 80, "power_lift": 70, "power_top": 30, "power_carry": 25,
 			"top_drop_delay": 0.25,
-			"payout_mode": "count", "payout_every": 12, "payout_revenue": 6000, "strong_power": 100,
+			"payout_mode": "count", "payout_every": 15, "payout_revenue": 6000, "strong_power": 100,
 			"move_speed": 0.16, "drop_speed": 0.14, "lift_speed": 0.13, "sway": 0.5,
 			"drop_depth": 100, "open_angle": 40, "auto_drop": true, "start_from_home": true,
-			"prize_ids": ["chick", "duck", "mochi", "mini_bear", "mini_bunny", "snack", "capsule"],
+			"prize_ids": ["chick", "duck", "mochi", "hamster", "whale", "mini_frog", "mini_bear", "mini_bunny", "snack", "capsule"],
 		}
 	return {
 		"name": "왕인형 뽑기",
@@ -125,7 +141,7 @@ func default_settings(kind: String) -> Dictionary:
 		"payout_mode": "count", "payout_every": 15, "payout_revenue": 15000, "strong_power": 100,
 		"move_speed": 0.2, "drop_speed": 0.17, "lift_speed": 0.15, "sway": 0.6,
 		"drop_depth": 100, "open_angle": 42, "auto_drop": true, "start_from_home": true,
-		"prize_ids": ["bear", "bunny", "penguin", "dino", "cat", "figure_box"],
+		"prize_ids": ["bear", "bunny", "penguin", "dino", "cat", "panda", "shiba", "shark", "frog", "figure_box"],
 	}
 
 

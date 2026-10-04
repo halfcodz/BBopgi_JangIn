@@ -296,9 +296,10 @@ def surface_curve(f, ctrl, samples=24):
 
 def surface_point(f, origin, direction):
     """origin 에서 direction 으로 나아가며 표면(f=0)을 찾는다."""
-    o = np.asarray(origin, float)
     d = np.asarray(direction, float)
     d /= np.linalg.norm(d)
+    # 타원체 SDF 는 정확한 중심에서 0 이 되므로 살짝 비켜서 출발
+    o = np.asarray(origin, float) + d * 0.004
     t = 0.0
     for _ in range(200):
         p = o + d * t

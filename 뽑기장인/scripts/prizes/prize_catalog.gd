@@ -122,6 +122,74 @@ const ITEMS := {
 			[Color(0.72, 0.52, 0.95), Color(1.0, 0.95, 0.9)],
 		],
 	},
+	"panda": {
+		"name": "판다 인형", "model": "panda", "size_class": "big",
+		"scale": 1.0, "mass": 0.30, "cost": 4800, "friction": 0.95,
+		"colorways": [
+			[Color(0.97, 0.97, 0.95), Color(0.12, 0.12, 0.13), Color(0.96, 0.70, 0.74)],
+			[Color(0.99, 0.90, 0.92), Color(0.35, 0.22, 0.24), Color(0.96, 0.62, 0.70)],
+		],
+	},
+	"shiba": {
+		"name": "시바견 인형", "model": "shiba", "size_class": "big",
+		"scale": 1.0, "mass": 0.30, "cost": 4600, "friction": 0.95,
+		"colorways": [
+			[Color(0.88, 0.55, 0.28), Color(0.99, 0.95, 0.88), Color(0.96, 0.70, 0.74)],
+			[Color(0.22, 0.2, 0.2), Color(0.96, 0.9, 0.82), Color(0.96, 0.70, 0.74)],
+			[Color(0.96, 0.92, 0.84), Color(1.0, 0.98, 0.95), Color(0.96, 0.70, 0.74)],
+		],
+	},
+	"shark": {
+		"name": "아기 상어 인형", "model": "shark", "size_class": "big",
+		"scale": 1.0, "mass": 0.26, "cost": 4400, "friction": 0.9,
+		"colorways": [
+			[Color(0.45, 0.55, 0.68), Color(0.97, 0.97, 0.96), Color(0.92, 0.4, 0.45)],
+			[Color(0.55, 0.75, 0.95), Color(0.97, 0.97, 0.96), Color(0.92, 0.4, 0.45)],
+			[Color(0.98, 0.70, 0.78), Color(1.0, 0.95, 0.96), Color(0.85, 0.3, 0.4)],
+		],
+	},
+	"frog": {
+		"name": "개굴 개구리", "model": "frog", "size_class": "big",
+		"scale": 1.0, "mass": 0.22, "cost": 3800, "friction": 0.95,
+		"colorways": [
+			[Color(0.55, 0.8, 0.35), Color(0.97, 0.96, 0.8), Color(0.98, 0.6, 0.65)],
+			[Color(0.4, 0.75, 0.7), Color(0.95, 0.98, 0.9), Color(0.98, 0.6, 0.65)],
+		],
+	},
+	"mini_frog": {
+		"name": "미니 개구리", "model": "frog", "size_class": "small",
+		"scale": 0.5, "mass": 0.035, "cost": 900, "friction": 0.95,
+		"colorways": [[Color(0.55, 0.8, 0.35), Color(0.97, 0.96, 0.8), Color(0.98, 0.6, 0.65)]],
+	},
+	"hamster": {
+		"name": "볼빵빵 햄스터", "model": "hamster", "size_class": "small",
+		"scale": 1.0, "mass": 0.035, "cost": 900, "friction": 0.95,
+		"colorways": [
+			[Color(0.9, 0.65, 0.38), Color(0.99, 0.96, 0.9), Color(0.96, 0.66, 0.7)],
+			[Color(0.72, 0.72, 0.74), Color(0.99, 0.98, 0.96), Color(0.96, 0.66, 0.7)],
+			[Color(0.98, 0.9, 0.78), Color(1.0, 0.98, 0.96), Color(0.96, 0.66, 0.7)],
+		],
+	},
+	"whale": {
+		"name": "통통 고래", "model": "whale", "size_class": "small",
+		"scale": 1.0, "mass": 0.035, "cost": 900, "friction": 0.9,
+		"colorways": [
+			[Color(0.35, 0.55, 0.9), Color(0.95, 0.97, 1.0), Color(0.96, 0.62, 0.7)],
+			[Color(0.55, 0.85, 0.95), Color(0.97, 0.99, 1.0), Color(0.96, 0.62, 0.7)],
+		],
+	},
+	"jp_figure_a": {
+		"name": "마법소녀 프라이즈 피규어", "model": "figure_jp", "size_class": "bridge",
+		"scale": 1.0, "mass": 0.42, "cost": 9000, "friction": 0.35, "angular_damp": 0.5,
+		"texture": "res://assets/textures/prizes/jp_figure_a.png",
+		"colorways": [[Color(1, 1, 1)]],
+	},
+	"jp_figure_b": {
+		"name": "로봇 프라이즈 피규어", "model": "figure_jp", "size_class": "bridge",
+		"scale": 1.0, "mass": 0.45, "cost": 9000, "friction": 0.35, "angular_damp": 0.5,
+		"texture": "res://assets/textures/prizes/jp_figure_b.png",
+		"colorways": [[Color(1, 1, 1)]],
+	},
 }
 
 

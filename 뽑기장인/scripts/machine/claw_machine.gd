@@ -40,12 +40,15 @@ var rest_y := 1.56
 var rail_y := 1.8
 var claw_size := 1.0
 var bin_y := 0.1
+var open_h := 0.3  ## 배출구 구멍 높이
+var _bin_scan := 0
 
 var claw: ClawRig
 var prizes_root: Node3D
 var bin_area: Area3D
 var front_cam: Marker3D
 var side_cam: Marker3D
+var side_cam_l: Marker3D
 var close_cam: Marker3D
 var interact_body: StaticBody3D
 var carriage_mesh: Node3D
@@ -113,7 +116,7 @@ func _ready() -> void:
 	Game.settings_changed.connect(_on_settings_changed)
 	carriage = _home()
 	head_y = rest_y
-	claw.close(0.6)
+	claw.open()  # 실제 기계처럼 평소에는 발이 펼쳐진 상태
 	_place_claw_now()
 	_update_labels()
 	call_deferred("_initial_prizes")
@@ -135,6 +138,7 @@ func _setup_dims() -> void:
 		claw_size = 0.62
 		rest_y = glass_top - 0.2
 		bin_y = 0.12
+		open_h = 0.22
 	else:
 		rest_y = glass_top - 0.3
 	rail_y = glass_top - 0.05
@@ -217,7 +221,7 @@ func _build_cabinet() -> void:
 	var hw := W * 0.5
 	var hd := D * 0.5
 	var t := 0.03
-	var tex_tag := "big" if kind == "big" else "small"
+	var tex_tag := "big" if kind != "small" else "small"
 
 	# 아래 캐비닛(배출구 구멍이 있는 앞판은 조각으로)
 	_box(Vector3(t, base_h, D), Vector3(-hw + t * 0.5, base_h * 0.5, 0), paint)
@@ -226,7 +230,7 @@ func _build_cabinet() -> void:
 	var open_x0 := -ix
 	var open_x1 := chute_x
 	var open_y0 := bin_y
-	var open_y1 := bin_y + (0.3 if kind == "big" else 0.22)
+	var open_y1 := bin_y + open_h
 	# 앞판: 구멍 오른쪽, 구멍 위, 구멍 아래, 구멍 왼쪽
 	_box(Vector3(hw - open_x1, base_h, t), Vector3((open_x1 + hw) * 0.5, base_h * 0.5, hd - t * 0.5), white)
 	_box(Vector3(open_x1 - (-hw), base_h - open_y1, t), Vector3((-hw + open_x1) * 0.5, (open_y1 + base_h) * 0.5, hd - t * 0.5), white)
@@ -247,7 +251,7 @@ func _build_cabinet() -> void:
 	var take := Label3D.new()
 	take.text = "상품 꺼내는 곳 ▼"
 	take.font_size = 34
-	take.pixel_size = 0.0011 * (1.0 if kind == "big" else 0.8)
+	take.pixel_size = 0.0011 * (1.0 if kind != "small" else 0.8)
 	take.outline_size = 8
 	take.modulate = Color(1, 1, 1)
 	take.position = Vector3((open_x0 + open_x1) * 0.5, open_y1 + 0.03, hd + 0.004)
@@ -281,31 +285,7 @@ func _build_cabinet() -> void:
 	add_child(bq)
 	_box(Vector3(W, gh, 0.02), Vector3(0, base_h + gh * 0.5, -hd + 0.01), white)
 
-	# 상품 바닥(배출구 구멍 제외) – 펠트 원단
-	var bed := StandardMaterial3D.new()
-	bed.albedo_texture = load("res://assets/textures/machine/prize_bed.png")
-	bed.uv1_scale = Vector3(3, 3, 3)
-	bed.roughness = 0.95
-	var bed_pm := PhysicsMaterial.new()
-	bed_pm.friction = 0.8
-	var bt := 0.04
-	var parts := [
-		[Vector3(ix * 2.0, bt, chute_z - z_back), Vector3(0, base_h - bt * 0.5, (z_back + chute_z) * 0.5)],
-		[Vector3(ix - chute_x, bt, z_front - chute_z), Vector3((chute_x + ix) * 0.5, base_h - bt * 0.5, (chute_z + z_front) * 0.5)],
-	]
-	for p in parts:
-		var mi := _box(p[0], p[1], bed, false)
-		var sb := StaticBody3D.new()
-		sb.collision_layer = LAYER_ENV
-		sb.physics_material_override = bed_pm
-		var cs := CollisionShape3D.new()
-		var bs := BoxShape3D.new()
-		bs.size = p[0]
-		cs.shape = bs
-		sb.add_child(cs)
-		sb.position = p[1]
-		add_child(sb)
-		mi.name = "Bed"
+	_build_bed()
 
 	# 위 간판(헤더)
 	var header_mat := StandardMaterial3D.new()
@@ -324,7 +304,7 @@ func _build_cabinet() -> void:
 	name_label = Label3D.new()
 	name_label.font = load("res://assets/fonts/BlackHanSans-Regular.ttf")
 	name_label.font_size = 96
-	name_label.pixel_size = 0.0012 * (1.0 if kind == "big" else 0.75)
+	name_label.pixel_size = 0.0012 * (1.0 if kind != "small" else 0.75)
 	name_label.outline_size = 22
 	name_label.outline_modulate = Color(0.35, 0.1, 0.25)
 	name_label.modulate = Color(1, 1, 0.92)
@@ -366,7 +346,7 @@ func _build_cabinet() -> void:
 	interior_light.rotation = Vector3(-PI / 2, 0, 0)
 	interior_light.spot_angle = 62
 	interior_light.spot_range = 2.0
-	interior_light.light_energy = 2.2 if kind == "big" else 1.6
+	interior_light.light_energy = 2.2 if kind != "small" else 1.6
 	interior_light.light_color = Color(1.0, 0.97, 0.93)
 	interior_light.shadow_enabled = true
 	add_child(interior_light)
@@ -401,6 +381,34 @@ func _build_cabinet() -> void:
 	add_child(pb)
 
 
+func _build_bed() -> void:
+	# 상품 바닥(배출구 구멍 제외) – 펠트 원단
+	var bed := StandardMaterial3D.new()
+	bed.albedo_texture = load("res://assets/textures/machine/prize_bed.png")
+	bed.uv1_scale = Vector3(3, 3, 3)
+	bed.roughness = 0.95
+	var bed_pm := PhysicsMaterial.new()
+	bed_pm.friction = 0.8
+	var bt := 0.04
+	var parts := [
+		[Vector3(ix * 2.0, bt, chute_z - z_back), Vector3(0, base_h - bt * 0.5, (z_back + chute_z) * 0.5)],
+		[Vector3(ix - chute_x, bt, z_front - chute_z), Vector3((chute_x + ix) * 0.5, base_h - bt * 0.5, (chute_z + z_front) * 0.5)],
+	]
+	for p in parts:
+		var mi := _box(p[0], p[1], bed, false)
+		var sb := StaticBody3D.new()
+		sb.collision_layer = LAYER_ENV
+		sb.physics_material_override = bed_pm
+		var cs := CollisionShape3D.new()
+		var bs := BoxShape3D.new()
+		bs.size = p[0]
+		cs.shape = bs
+		sb.add_child(cs)
+		sb.position = p[1]
+		add_child(sb)
+		mi.name = "Bed"
+
+
 # =================================================================== 빌드: 레일
 func _build_gantry() -> void:
 	var metal := _mat(Color(0.75, 0.76, 0.8), 0.3, 0.9)
@@ -420,7 +428,7 @@ func _build_gantry() -> void:
 func _build_controls() -> void:
 	var hw := W * 0.5
 	var hd := D * 0.5
-	var tex_tag := "big" if kind == "big" else "small"
+	var tex_tag := "big" if kind != "small" else "small"
 	var panel_mat := StandardMaterial3D.new()
 	panel_mat.albedo_texture = load("res://assets/textures/machine/panel_%s.png" % tex_tag)
 	panel_mat.roughness = 0.35
@@ -431,7 +439,7 @@ func _build_controls() -> void:
 	_box(Vector3(W - 0.04, 0.06, 0.22), Vector3.ZERO, panel_mat, true, panel_root)
 	_box(Vector3(W - 0.04, 0.012, 0.225), Vector3(0, 0.035, 0), _mat(Color(0.62, 0.63, 0.66), 0.3, 0.85), false, panel_root)
 	# 조이스틱
-	var js_x := -0.22 if kind == "big" else -0.15
+	var js_x := -0.22 if kind != "small" else -0.15
 	var base_ring := MeshInstance3D.new()
 	var brm := CylinderMesh.new()
 	brm.top_radius = 0.035
@@ -477,50 +485,54 @@ func _build_controls() -> void:
 	button_mat.emission_enabled = true
 	button_mat.emission = Color(1.0, 0.2, 0.25)
 	button_mat.emission_energy_multiplier = 0.5
-	button_mesh = _make_button(panel_root, Vector3(0.2 if kind == "big" else 0.14, 0.04, 0.0), button_mat, 0.032)
+	button_mesh = _make_button(panel_root, Vector3(0.2 if kind != "small" else 0.14, 0.04, 0.0), button_mat, 0.032)
 	var b2mat := _mat(Color(0.2, 0.55, 1.0), 0.25)
 	b2mat.emission_enabled = true
 	b2mat.emission = Color(0.2, 0.5, 1.0)
 	b2mat.emission_energy_multiplier = 0.4
-	button2_mesh = _make_button(panel_root, Vector3(0.06 if kind == "big" else 0.03, 0.04, 0.02), b2mat, 0.024)
-	# LED 표시창(크레딧/시간)
+	button2_mesh = _make_button(panel_root, Vector3(0.06 if kind != "small" else 0.03, 0.04, 0.02), b2mat, 0.024)
+	# LED 표시창(크레딧/시간) – 조작판 위에 비스듬히 세워 플레이 중에 잘 보이게
 	var disp := _mat(Color(0.03, 0.03, 0.04), 0.3)
 	var disp_root := Node3D.new()
-	disp_root.position = Vector3(0, base_h + 0.03, hd - 0.005)
-	add_child(disp_root)
-	_box(Vector3(0.34 if kind == "big" else 0.28, 0.07, 0.02), Vector3(0, 0, 0.0), disp, false, disp_root)
+	var dw := 0.2 if kind != "small" else 0.15
+	disp_root.position = Vector3(-0.07 if kind != "small" else -0.055, 0.085, -0.055)
+	disp_root.rotation.x = deg_to_rad(-40)
+	panel_root.add_child(disp_root)
+	_box(Vector3(dw + 0.02, 0.095, 0.03), Vector3(0, 0, -0.006), _mat(Color(0.85, 0.86, 0.9), 0.25, 0.8), false, disp_root)
+	_box(Vector3(dw, 0.08, 0.02), Vector3(0, 0, 0.0), disp, false, disp_root)
+	_box(Vector3(0.03, 0.05, 0.03), Vector3(0, -0.06, -0.01), _mat(Color(0.2, 0.2, 0.22), 0.4), false, disp_root)
 	var seg := load("res://assets/fonts/DoHyeon-Regular.ttf")
 	credit_label = Label3D.new()
 	credit_label.font = seg
 	credit_label.font_size = 40
-	credit_label.pixel_size = 0.0011
-	credit_label.modulate = Color(1.0, 0.25, 0.2)
-	credit_label.position = Vector3(-0.075 if kind == "big" else -0.065, 0, 0.012)
-	credit_label.font_size = 34 if kind == "big" else 28
+	credit_label.pixel_size = 0.00095 if kind != "small" else 0.0008
+	credit_label.modulate = Color(1.0, 0.3, 0.25)
+	credit_label.position = Vector3(0, 0.018, 0.011)
 	credit_label.shaded = false
+	credit_label.outline_size = 0
 	disp_root.add_child(credit_label)
 	timer_label = Label3D.new()
 	timer_label.font = seg
 	timer_label.font_size = 40
-	timer_label.pixel_size = 0.0011
-	timer_label.modulate = Color(0.3, 1.0, 0.4)
-	timer_label.position = Vector3(0.085 if kind == "big" else 0.07, 0, 0.012)
-	timer_label.font_size = 34 if kind == "big" else 28
+	timer_label.pixel_size = 0.00095 if kind != "small" else 0.0008
+	timer_label.modulate = Color(0.3, 1.0, 0.45)
+	timer_label.position = Vector3(0, -0.02, 0.011)
 	timer_label.shaded = false
+	timer_label.outline_size = 0
 	disp_root.add_child(timer_label)
 	# 가격표 스티커(앞 유리 아래쪽)
 	price_label = Label3D.new()
 	price_label.font = load("res://assets/fonts/BlackHanSans-Regular.ttf")
 	price_label.font_size = 52
-	price_label.pixel_size = 0.0011 * (1.0 if kind == "big" else 0.8)
+	price_label.pixel_size = 0.0011 * (1.0 if kind != "small" else 0.8)
 	price_label.outline_size = 14
 	price_label.outline_modulate = Color(0.3, 0.05, 0.15)
 	price_label.modulate = Color(1, 0.95, 0.3)
-	price_label.position = Vector3(ix - (0.17 if kind == "big" else 0.12), glass_top - (0.13 if kind == "big" else 0.1), hd - 0.012)
+	price_label.position = Vector3(ix - (0.17 if kind != "small" else 0.12), glass_top - (0.13 if kind != "small" else 0.1), hd - 0.012)
 	add_child(price_label)
 	# 지폐 투입구
 	var acc_root := Node3D.new()
-	acc_root.position = Vector3(hw - (0.17 if kind == "big" else 0.13), base_h - 0.3, hd + 0.003)
+	acc_root.position = Vector3(hw - (0.17 if kind != "small" else 0.13), base_h - 0.3, hd + 0.003)
 	add_child(acc_root)
 	_box(Vector3(0.13, 0.16, 0.02), Vector3.ZERO, _mat(Color(0.12, 0.12, 0.14), 0.4, 0.4), false, acc_root)
 	_box(Vector3(0.1, 0.006, 0.022), Vector3(0, 0.03, 0.002), _mat(Color(0.0, 0.0, 0.0), 0.9), false, acc_root)
@@ -584,7 +596,7 @@ func _rebuild_claw() -> void:
 	sway = Vector2.ZERO
 	sway_v = Vector2.ZERO
 	_build_claw()
-	claw.close(0.6)
+	claw.open()
 	_place_claw_now()
 
 
@@ -614,7 +626,7 @@ func _build_chute() -> void:
 	_box(Vector3(cw, shaft_h, 0.01), Vector3((-ix + chute_x) * 0.5, bin_y + shaft_h * 0.5, chute_z - 0.005), inner, true)
 	_box(Vector3(0.01, shaft_h, cd), Vector3(-ix - 0.005, bin_y + shaft_h * 0.5, (chute_z + z_front) * 0.5), inner, true)
 	# 배출구 위쪽 앞면(유리 아래 ~ 구멍 위) 안쪽 충돌벽
-	var open_y1 := bin_y + (0.3 if kind == "big" else 0.22)
+	var open_y1 := bin_y + open_h
 	_wall(Vector3(cw, base_h - open_y1, 0.02), Vector3((-ix + chute_x) * 0.5, (open_y1 + base_h) * 0.5, z_front + 0.03))
 	# 바닥: 앞으로 살짝 기울어진 받침 + 앞쪽 턱
 	_box(Vector3(cw, 0.02, cd + 0.06), Vector3((-ix + chute_x) * 0.5, bin_y - 0.01, (chute_z + z_front) * 0.5 + 0.03), inner, true, null, Vector3(deg_to_rad(6), 0, 0))
@@ -644,14 +656,18 @@ func _build_cameras() -> void:
 	var mid_y := base_h + (glass_top - base_h) * 0.42
 	front_cam = Marker3D.new()
 	add_child(front_cam)
-	var eye_h := 1.62 if kind == "big" else 1.5
-	var fp := Vector3(0.0, eye_h, D * 0.5 + (0.95 if kind == "big" else 0.72))
+	var eye_h := 1.62 if kind != "small" else 1.5
+	var fp := Vector3(0.0, eye_h, D * 0.5 + (0.95 if kind != "small" else 0.72))
 	front_cam.transform = Transform3D(Basis.looking_at(Vector3(0, mid_y - 0.08, -0.02) - fp), fp)
 	side_cam = Marker3D.new()
 	add_child(side_cam)
 	# 옆 기계에 가리지 않도록 앞쪽 모서리에서 비스듬히 들여다보는 시점
-	var sp := Vector3(W * 0.5 + (0.25 if kind == "big" else 0.18), eye_h - 0.05, D * 0.5 + (0.62 if kind == "big" else 0.5))
+	var sp := Vector3(W * 0.5 + (0.25 if kind != "small" else 0.18), eye_h - 0.05, D * 0.5 + (0.62 if kind != "small" else 0.5))
 	side_cam.transform = Transform3D(Basis.looking_at(Vector3(0, mid_y - 0.08, 0) - sp), sp)
+	side_cam_l = Marker3D.new()
+	add_child(side_cam_l)
+	var spl := Vector3(-sp.x, sp.y, sp.z)
+	side_cam_l.transform = Transform3D(Basis.looking_at(Vector3(0, mid_y - 0.08, 0) - spl), spl)
 	close_cam = Marker3D.new()
 	add_child(close_cam)
 	var cp := Vector3(0.0, base_h + (glass_top - base_h) * 0.55, D * 0.5 + 0.25)
@@ -690,7 +706,7 @@ func fill_random(count: int, ids: Array = []) -> void:
 	for i in count:
 		var id: String = ids[rng.randi() % ids.size()]
 		var h := 0.25 + (i / 6) * 0.12
-		var lp := _rand_pos_in_bed(rng, 0.09 if kind == "big" else 0.05)
+		var lp := _rand_pos_in_bed(rng, 0.09 if kind != "small" else 0.05)
 		lp.y = base_h + min(h, glass_top - base_h - 0.45)
 		add_prize(id, to_global(lp), rng.randf() * TAU, rng)
 
@@ -714,7 +730,7 @@ func _return_to_bed(p: Prize) -> void:
 		return
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	var lp := _rand_pos_in_bed(rng, 0.12 if kind == "big" else 0.07)
+	var lp := _rand_pos_in_bed(rng, 0.12 if kind != "small" else 0.07)
 	lp.y = base_h + 0.3
 	p.teleport_to(to_global(lp), rng.randf() * TAU)
 
@@ -769,6 +785,11 @@ func take_prizes_from_bin() -> Array:
 var _last_game_end := -100000
 
 
+## 이 높이 아래로 떨어지면 획득
+func _win_y() -> float:
+	return base_h - 0.05
+
+
 func _on_bin_body(body: Node3D) -> void:
 	var p := body.get_parent()
 	if p is Prize and not p.won:
@@ -777,7 +798,7 @@ func _on_bin_body(body: Node3D) -> void:
 		if not game_active and Time.get_ticks_msec() - _last_game_end > 4000:
 			_return_to_bed.call_deferred(p)
 			return
-		if c.y < base_h - 0.05:
+		if c.y < _win_y():
 			p.won = true
 			ledger["payouts"] = int(ledger["payouts"]) + 1
 			ledger["payout_cost"] = int(ledger["payout_cost"]) + p.cost
@@ -986,7 +1007,6 @@ func _physics_process(delta: float) -> void:
 				want = d.normalized() * clamp(d.length() / 0.06, 0.15, 1.0)
 		State.RELEASING:
 			if phase_t > 1.3:
-				claw.close(0.5)
 				_set_state(State.RESETTING)
 		State.RESETTING:
 			if phase_t > 0.6:
@@ -996,6 +1016,11 @@ func _physics_process(delta: float) -> void:
 				save_layout()
 				if credits > 0:
 					get_tree().create_timer(0.6).timeout.connect(_start_game)
+	# 배출구 영역에 걸쳐 있는 상품을 주기적으로 다시 확인(천천히 미끄러져 들어가는 경우)
+	_bin_scan += 1
+	if _bin_scan % 8 == 0 and bin_area:
+		for b in bin_area.get_overlapping_bodies():
+			_on_bin_body(b)
 	_move_carriage(want, speed, delta)
 	_update_sway(delta)
 	_place_claw_now()

@@ -139,7 +139,7 @@ func _build_room() -> void:
 	neon2.shaded = false
 	# 포스터
 	_poster("poster_tip", Vector3(RX - 0.02, 1.7, -0.3), -PI / 2)
-	_poster("poster_new", Vector3(-RX + 0.02, 1.7, 2.2), PI / 2)
+	_poster("poster_new", Vector3(-1.2, 1.75, RZ - 0.02), PI)
 	_poster("poster_rule", Vector3(0.3, 1.75, RZ - 0.02), PI)
 
 
@@ -159,7 +159,7 @@ func _poster(tex: String, pos: Vector3, rot_y: float) -> void:
 
 # ------------------------------------------------------------------ 인형뽑기 기계들
 func _add_machine(id: String, kind: String, pos: Vector3, rot_y: float, color: Color, preset: Dictionary, fill: int) -> void:
-	var m := ClawMachine.new()
+	var m: ClawMachine = BridgeMachine.new() if kind == "bridge" else ClawMachine.new()
 	m.name = id
 	m.machine_id = id
 	m.kind = kind
@@ -174,15 +174,20 @@ func _add_machine(id: String, kind: String, pos: Vector3, rot_y: float, color: C
 
 func _build_machines() -> void:
 	var bz := -RZ + 0.52
-	_add_machine("big_1", "big", Vector3(-2.7, 0, bz), 0, Color(1.0, 0.45, 0.66), {"name": "왕인형 뽑기", "prize_ids": ["bear", "bunny", "penguin", "dino", "cat", "figure_box"]}, 18)
-	_add_machine("big_2", "big", Vector3(-1.5, 0, bz), 0, Color(0.35, 0.78, 0.68), {"name": "공룡·펭귄 마을", "prize_ids": ["dino", "penguin", "bear"]}, 16)
-	_add_machine("big_3", "big", Vector3(-0.3, 0, bz), 0, Color(0.62, 0.5, 0.92), {"name": "토끼·냥이 쿠션", "prize_ids": ["bunny", "cat", "bear"], "payout_mode": "revenue"}, 16)
+	_add_machine("big_1", "big", Vector3(-2.7, 0, bz), 0, Color(1.0, 0.45, 0.66), {"name": "왕인형 뽑기", "prize_ids": ["bear", "bunny", "penguin", "dino", "cat", "panda", "shiba", "shark", "frog"]}, 18)
+	_add_machine("big_2", "big", Vector3(-1.5, 0, bz), 0, Color(0.35, 0.78, 0.68), {"name": "바다·공룡 친구들", "prize_ids": ["dino", "penguin", "shark", "frog"]}, 16)
+	_add_machine("big_3", "big", Vector3(-0.3, 0, bz), 0, Color(0.62, 0.5, 0.92), {"name": "멍냥·판다 하우스", "prize_ids": ["shiba", "panda", "bunny", "cat"], "payout_mode": "revenue"}, 16)
 	_add_machine("big_4", "big", Vector3(0.9, 0, bz), 0, Color(1.0, 0.62, 0.3), {"name": "피규어 박스", "prize_ids": ["figure_box", "bear"], "power_grab": 85, "power_top": 40}, 12)
 	var sx := -RX + 0.4
-	_add_machine("small_1", "small", Vector3(sx, 0, -2.4), PI / 2, Color(0.4, 0.68, 1.0), {"name": "삐약이 미니뽑기", "prize_ids": ["chick", "duck", "mochi"]}, 22)
+	_add_machine("small_1", "small", Vector3(sx, 0, -2.4), PI / 2, Color(0.4, 0.68, 1.0), {"name": "삐약이 미니뽑기", "prize_ids": ["chick", "duck", "hamster", "whale"]}, 22)
 	_add_machine("small_2", "small", Vector3(sx, 0, -1.6), PI / 2, Color(1.0, 0.78, 0.25), {"name": "키링 뽑기", "prize_ids": ["mini_bear", "mini_bunny"], "prong_count": 2, "open_angle": 34}, 18)
 	_add_machine("small_3", "small", Vector3(sx, 0, -0.8), PI / 2, Color(1.0, 0.5, 0.6), {"name": "과자·캡슐 뽑기", "prize_ids": ["snack", "capsule", "mochi"], "control_mode": "2button"}, 22)
-	_add_machine("small_4", "small", Vector3(sx, 0, 0.0), PI / 2, Color(0.55, 0.85, 0.45), {"name": "모찌볼 천국", "prize_ids": ["mochi", "chick", "duck", "mini_bear"]}, 22)
+	_add_machine("small_4", "small", Vector3(sx, 0, 0.0), PI / 2, Color(0.55, 0.85, 0.45), {"name": "모찌볼 천국", "prize_ids": ["mochi", "chick", "duck", "mini_bear", "hamster", "whale", "mini_frog"]}, 22)
+	# 일본식 프라이즈 피규어 기계(다리 세팅) 2대
+	var bx := -RX + 0.52
+	_add_machine("bridge_1", "bridge", Vector3(bx, 0, 1.15), PI / 2, Color(0.92, 0.18, 0.25), {"name": "UFO 피규어 · 미루", "prize_ids": ["jp_figure_a"]}, 1)
+	_add_machine("bridge_2", "bridge", Vector3(bx, 0, 2.3), PI / 2, Color(0.2, 0.45, 0.95), {"name": "UFO 피규어 · 보노", "prize_ids": ["jp_figure_b"], "bridge_gap": 0.18}, 1)
+	Build.text(self, "일본식 피규어 존", Vector3(-RX + 0.03, 2.62, 1.75), 90, 0.0018, Color(1.0, 0.95, 0.7), Color(0.9, 0.2, 0.3), "res://assets/fonts/BlackHanSans-Regular.ttf").rotation.y = PI / 2
 
 
 # ------------------------------------------------------------------ 교환기 / 캡슐뽑기 / 자판기
@@ -256,7 +261,6 @@ func _build_decor() -> void:
 	Build.decor(self, "speaker", Vector3(RX - 0.3, 2.2, RZ - 0.3), 1.3, -3 * PI / 4)
 	Build.decor(self, "rugRound", Vector3(-1.0, 0.003, 1.2), 2.4)
 	Build.decor(self, "stoolBar", Vector3(-2.2, 0, 1.0), 1.6)
-	Build.decor(self, "stoolBar", Vector3(-4.2, 0, 0.9), 1.6)
 
 
 func save_all() -> void:

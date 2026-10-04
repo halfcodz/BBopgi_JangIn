@@ -218,7 +218,72 @@ def bills():
         save(img, f"ui/bill_{val}.png")
 
 
+def _chibi_girl(d, cx, cy, s):
+    # 오리지널 캐릭터: 분홍 머리 마법소녀(단순 도형)
+    d.ellipse([cx - 70 * s, cy - 150 * s, cx + 70 * s, cy - 10 * s], fill=(255, 140, 190))  # 머리카락
+    d.ellipse([cx - 55 * s, cy - 130 * s, cx + 55 * s, cy - 25 * s], fill=(255, 228, 210))  # 얼굴
+    d.pieslice([cx - 70 * s, cy - 160 * s, cx + 70 * s, cy - 40 * s], 180, 360, fill=(255, 120, 180))  # 앞머리
+    for sx in (-1, 1):
+        d.ellipse([cx + sx * 22 * s - 11 * s, cy - 85 * s, cx + sx * 22 * s + 11 * s, cy - 60 * s], fill=(90, 60, 160))
+        d.ellipse([cx + sx * 22 * s - 4 * s, cy - 82 * s, cx + sx * 22 * s + 3 * s, cy - 74 * s], fill=(255, 255, 255))
+        d.ellipse([cx + sx * 85 * s - 25 * s, cy - 140 * s, cx + sx * 85 * s + 25 * s, cy - 90 * s], fill=(255, 140, 190))  # 양갈래
+    d.arc([cx - 12 * s, cy - 58 * s, cx + 12 * s, cy - 45 * s], 20, 160, fill=(200, 80, 100), width=int(3 * s))
+    d.polygon([(cx - 45 * s, cy - 15 * s), (cx + 45 * s, cy - 15 * s), (cx + 70 * s, cy + 110 * s), (cx - 70 * s, cy + 110 * s)], fill=(255, 255, 255))
+    d.polygon([(cx - 70 * s, cy + 60 * s), (cx + 70 * s, cy + 60 * s), (cx + 85 * s, cy + 120 * s), (cx - 85 * s, cy + 120 * s)], fill=(255, 150, 200))
+    d.line([(cx + 60 * s, cy - 10 * s), (cx + 120 * s, cy - 90 * s)], fill=(250, 210, 80), width=int(8 * s))
+    star(d, cx + 125 * s, cy - 100 * s, 30 * s, (255, 220, 80))
+
+
+def _robot(d, cx, cy, s):
+    d.rounded_rectangle([cx - 60 * s, cy - 150 * s, cx + 60 * s, cy - 50 * s], 18 * s, fill=(90, 170, 255))
+    d.rectangle([cx - 45 * s, cy - 125 * s, cx + 45 * s, cy - 80 * s], fill=(30, 40, 70))
+    for sx in (-1, 1):
+        d.ellipse([cx + sx * 22 * s - 12 * s, cy - 115 * s, cx + sx * 22 * s + 12 * s, cy - 91 * s], fill=(120, 255, 220))
+    d.line([(cx, cy - 150 * s), (cx, cy - 185 * s)], fill=(200, 200, 210), width=int(6 * s))
+    d.ellipse([cx - 10 * s, cy - 200 * s, cx + 10 * s, cy - 180 * s], fill=(255, 90, 90))
+    d.rounded_rectangle([cx - 75 * s, cy - 45 * s, cx + 75 * s, cy + 80 * s], 20 * s, fill=(240, 240, 245))
+    d.ellipse([cx - 25 * s, cy - 15 * s, cx + 25 * s, cy + 35 * s], fill=(255, 200, 60))
+    for sx in (-1, 1):
+        d.rounded_rectangle([cx + sx * 80 * s - 18 * s, cy - 40 * s, cx + sx * 80 * s + 18 * s, cy + 60 * s], 10 * s, fill=(90, 170, 255))
+        d.rounded_rectangle([cx + sx * 35 * s - 22 * s, cy + 80 * s, cx + sx * 35 * s + 22 * s, cy + 130 * s], 8 * s, fill=(60, 120, 220))
+
+
+def jp_figure(name, bg1, bg2, title, sub, draw_fn):
+    W = 1024
+    img = Image.new("RGB", (W, W), bg1)
+    d = ImageDraw.Draw(img)
+    # 앞면 (0,0)-(614,410)
+    fx1, fy1 = 614, 410
+    for i in range(0, fx1, 36):
+        d.line([(i, 0), (i - 150, fy1)], fill=bg2, width=12)
+    d.rounded_rectangle([200, 30, 590, 390], 24, fill=(250, 248, 255), outline=(255, 255, 255), width=6)
+    draw_fn(d, 395, 250, 0.95)
+    d.rectangle([0, 0, 190, fy1], fill=bg2)
+    outlined_text(d, (95, 70), "PRIZE", font(FONT_BHS, 50), (255, 255, 255), (40, 20, 60), 5)
+    outlined_text(d, (95, 120), "FIGURE", font(FONT_BHS, 42), (255, 230, 90), (40, 20, 60), 5)
+    outlined_text(d, (95, 230), title, font(FONT_BHS, 32), (255, 255, 255), (40, 20, 60), 5)
+    outlined_text(d, (95, 290), sub, font(FONT_JUA, 30), (255, 255, 255), (40, 20, 60), 4)
+    outlined_text(d, (95, 370), "한정판", font(FONT_BHS, 40), (255, 80, 110), (255, 255, 255), 4)
+    # 뒷면 (0,410)-(614,819)
+    d.rectangle([0, 410, 614, 819], fill=bg2)
+    draw_fn(d, 160, 680, 0.75)
+    for i, ln in enumerate(["높이 약 18cm", "PVC/ABS 재질", "본 상품은 경품입니다", "만 15세 이상"]):
+        outlined_text(d, (440, 500 + i * 60), ln, font(FONT_JUA, 34), (255, 255, 255), (40, 20, 60), 3)
+    # 윗면/아랫면 (0,819)-(614,1024)
+    d.rectangle([0, 819, 614, 1024], fill=bg1)
+    outlined_text(d, (307, 921), title + " · PRIZE", font(FONT_BHS, 54), (255, 255, 255), (40, 20, 60), 5)
+    # 옆면 (614,0)-(819,410), (819,0)-(1024,410)
+    for x0 in (614, 819):
+        d.rectangle([x0, 0, x0 + 205, 410], fill=bg2)
+        outlined_text(d, (x0 + 102, 120), "PRIZE", font(FONT_BHS, 40), (255, 255, 255), (40, 20, 60), 4)
+        star(d, x0 + 102, 250, 50, (255, 230, 90))
+        outlined_text(d, (x0 + 102, 360), title, font(FONT_JUA, 30), (255, 255, 255), (40, 20, 60), 3)
+    save(img, f"prizes/{name}.png")
+
+
 if __name__ == "__main__":
+    jp_figure("jp_figure_a", (255, 190, 220), (240, 90, 160), "마법소녀 미루", "반짝반짝 Ver.", _chibi_girl)
+    jp_figure("jp_figure_b", (170, 210, 255), (50, 110, 220), "메카 보노", "출동 Ver.", _robot)
     machine_back("back_big", (255, 170, 200), [(255, 255, 255), (255, 120, 160), (255, 220, 120)], "뽑기장인", "heart")
     machine_back("back_small", (150, 205, 255), [(255, 255, 255), (255, 230, 120), (120, 170, 255)], "뽑기장인", "star")
     header("header_big", (255, 90, 150), (255, 160, 90))

@@ -38,15 +38,16 @@ func _initialize() -> void:
 	var game = root.get_node("/root/Game")
 	game.machine_settings.erase("play_" + kind)
 	game.machine_prizes.erase("play_" + kind)
-	m = load("res://scripts/machine/claw_machine.gd").new()
+	m = load("res://scripts/machine/bridge_machine.gd" if kind == "bridge" else "res://scripts/machine/claw_machine.gd").new()
 	m.kind = kind
 	m.machine_id = "play_" + kind
-	m.initial_fill = 16 if kind == "big" else 20
+	m.initial_fill = 16 if kind == "big" else (1 if kind == "bridge" else 20)
 	root.add_child(m)
 	if power >= 0:
 		for k in ["power_grab", "power_lift", "power_top", "power_carry"]:
 			m.settings[k] = power
 		m.settings["payout_mode"] = "skill"
+	m.settings["control_mode"] = "joystick"
 	var cam: Camera3D = null
 	if shot != "":
 		cam = Camera3D.new()
@@ -69,6 +70,14 @@ func _initialize() -> void:
 			await physics_frame
 		# 목표: 배출구에서 먼 인형 하나(머리 쪽)
 		var target: Vector3
+		var alive := 0
+		for q in m.get_prizes():
+			if not q.won:
+				alive += 1
+		if alive == 0:
+			m.fill_random(1)
+			for k in 180:
+				await physics_frame
 		var best := INF
 		var prizes: Array = m.get_prizes()
 		var tp = null
@@ -85,6 +94,9 @@ func _initialize() -> void:
 				tp = p
 		var hb = tp.bodies[1] if tp.bodies.size() > 1 else tp.bodies[0]
 		target = m.to_local(hb.global_position)
+		if kind == "bridge":
+			target.x += 0.1 * (1 if rng.randf() < 0.5 else -1)
+
 		var start_y: float = tp.get_center().y
 		# 캐리지를 목표 위로
 		var t := 0.0

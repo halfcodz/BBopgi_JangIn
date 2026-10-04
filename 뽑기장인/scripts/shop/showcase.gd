@@ -99,14 +99,15 @@ func refresh() -> void:
 	var si := 0
 	var hidden := 0
 	# 최근에 뽑은 것부터 진열
-	var entries: Array = Game.collection.duplicate()
-	entries.reverse()
-	for e in entries:
+	var order: Array = range(Game.collection.size())
+	order.reverse()
+	for ci in order:
+		var e: Dictionary = Game.collection[ci]
 		var id: String = e["id"]
 		var item := PrizeCatalog.get_item(id)
 		if item.is_empty():
 			continue
-		var big: bool = item["size_class"] == "big"
+		var big: bool = item["size_class"] != "small"
 		var slot: Transform3D
 		if big:
 			if bi >= slots_big.size():
@@ -120,6 +121,13 @@ func refresh() -> void:
 				continue
 			slot = slots_small[si]
 			si += 1
+		var holder := ShowcaseSlot.new()
+		holder.entry_index = ci
+		holder.prize_name = item["name"]
+		holder.transform = slot
+		display_root.add_child(holder)
+		var ib := Build.interact_body(holder, holder, Vector3(0.34, 0.36, 0.3) if big else Vector3(0.18, 0.24, 0.24), Vector3(0, 0.17 if big else 0.11, 0))
+		ib.name = "Pick"
 		var p := PrizeFactory.create(id, null, int(e.get("colorway", 0)))
 		if p == null:
 			continue

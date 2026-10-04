@@ -12,6 +12,8 @@ var machine_panel: PanelContainer
 var mp_name: Label
 var mp_info: Label
 var mp_state: Label
+var mp_big: Label
+var inspector: Inspector
 var mp_keys: Label
 var toast_box: VBoxContainer
 var help_panel: PanelContainer
@@ -106,8 +108,8 @@ func _ready() -> void:
 	# 기계 조작 패널
 	machine_panel = PanelContainer.new()
 	machine_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	machine_panel.position = Vector2(-470, -250)
-	machine_panel.custom_minimum_size = Vector2(450, 200)
+	machine_panel.position = Vector2(-490, -290)
+	machine_panel.custom_minimum_size = Vector2(470, 240)
 	machine_panel.visible = false
 	root.add_child(machine_panel)
 	var mv := VBoxContainer.new()
@@ -118,6 +120,8 @@ func _ready() -> void:
 	mh.add_child(mp_name)
 	mp_info = UIKit.label("", 18, UIKit.PINK_DARK)
 	mv.add_child(mp_info)
+	mp_big = UIKit.title("", 30)
+	mv.add_child(mp_big)
 	mp_state = UIKit.label("", 21)
 	mp_state.autowrap_mode = TextServer.AUTOWRAP_WORD
 	mv.add_child(mp_state)
@@ -136,6 +140,10 @@ func _ready() -> void:
 	_build_help(root)
 	_build_pause(root)
 	_build_collection(root)
+
+	inspector = Inspector.new()
+	inspector.hud = self
+	root.add_child(inspector)
 
 	owner_panel = OwnerPanel.new()
 	owner_panel.hud = self
@@ -206,20 +214,30 @@ func _process(_delta: float) -> void:
 		mp_state.text = m.state_text() + ("   🎁 배출구에 %d개! [E] 꺼내기" % bin_n if bin_n > 0 else "")
 		if Game.owner_mode:
 			mp_state.text += "   (강집게: %s)" % ("다음 판 ON" if _next_strong(m) else "OFF")
+		var t_txt := "%d초" % int(ceil(m.time_left)) if m.state == ClawMachine.State.MOVING else "--"
+		mp_big.text = "CREDIT %d    TIME %s" % [m.credits, t_txt]
+		mp_big.add_theme_color_override("font_color", Color(0.9, 0.15, 0.25) if (m.state == ClawMachine.State.MOVING and m.time_left <= 5.0) else UIKit.PINK_DARK)
+		var view := "시점: %s  (확대 %+d)" % [Player.VIEW_NAMES[player.view_index], int(player.zoom)]
 		if String(m.settings["control_mode"]) == "2button":
-			mp_keys.text = "[B] 1,000원  [N] 5,000원\n[X 누르는 동안] → 오른쪽   [Space 누르는 동안] ↑ 안쪽 (떼면 하강)\n[C] 시점  [E] 꺼내기  [Q] 나가기"
+			mp_keys.text = "[B] 1,000원  [N] 5,000원\n[X 누르는 동안] → 오른쪽   [Space 누르는 동안] ↑ 안쪽 (떼면 하강)\n[C] 시점  [+/-] 확대  [E] 꺼내기  [Q] 나가기   · " + view
 		else:
-			mp_keys.text = "[B] 1,000원  [N] 5,000원\n[WASD/방향키] 조이스틱   [Space] 집게 내리기\n[C] 정면/비스듬히/가까이  [마우스] 고개  [E] 꺼내기  [Q] 나가기"
+			mp_keys.text = "[B] 1,000원  [N] 5,000원\n[WASD/방향키] 조이스틱   [Space] 집게 내리기\n[C] 시점  [+/-] 확대  [마우스] 고개  [E] 꺼내기  [Q] 나가기   · " + view
 	elif player and player.mode == Player.Mode.WALK and player.focus and player.focus.has_method("interact_prompt"):
 		prompt.text = player.focus.interact_prompt()
+	if inspector and inspector.visible:
+		if Engine.get_process_frames() > inspector.opened_frame + 1 and (Input.is_action_just_pressed("menu") or Input.is_action_just_pressed("interact")):
+			inspector.close()
+		return
 	if Input.is_action_just_pressed("help"):
 		help_panel.visible = not help_panel.visible
 	if Input.is_action_just_pressed("collection") and not owner_panel.visible:
 		_toggle_collection()
 	if Input.is_action_just_pressed("owner_mode"):
 		_toggle_owner()
-	if Input.is_action_just_pressed("leave") and player and player.mode == Player.Mode.WALK:
-		if collection_panel.visible:
+	if Input.is_action_just_pressed("menu") and player:
+		if help_panel.visible:
+			help_panel.visible = false
+		elif collection_panel.visible:
 			_toggle_collection()
 		elif owner_panel.visible:
 			_toggle_owner()
@@ -262,17 +280,17 @@ func _build_help(root: Control) -> void:
 	var v := VBoxContainer.new()
 	help_panel.add_child(v)
 	v.add_child(UIKit.title("뽑기장인 사용 설명서"))
-	var txt := """[걷기] WASD 이동 · Shift 달리기 · 마우스 둘러보기 · E 상호작용
+	var txt := """[걷기] WASD 이동 · Shift 달리기 · 마우스 둘러보기 · E 상호작용 · +/- 또는 휠로 확대/축소
 [인형뽑기] 기계 앞에서 E → B로 1,000원(N은 5,000원) 넣기 → 시간 안에 조이스틱 이동 → Space로 집게 내리기
-  · C: 정면 / 옆 / 가까이 시점 전환 — 옆에서 보면 집게가 앞뒤로 어디 있는지 보여요!
+  · C: 정면 → 오른쪽 비스듬히 → 왼쪽 비스듬히 → 가까이 (깊이 확인!)  · +/- : 확대·축소
   · 집게는 줄에 매달려 흔들립니다. 멈춘 뒤 흔들림이 잦아들 때 내리세요.
-  · 인형이 배출구로 떨어지면 E로 꺼내세요. 꺼낸 인형은 '나의 전시장'에 진열됩니다.
+  · 인형이 배출구로 떨어지면 E로 꺼내세요.  · Q: 기계에서 나와 걷기
 [큰 기계] 1회 1,000원 · 3발 큰 집게   [작은 기계] 1,000원 2회 · 작은 집게(2발/3발)
+[일본식 피규어 기계] 두 봉 위에 놓인 피규어 상자를 밀고 들어 봉 사이로 떨어뜨리세요(2버튼).
 [2버튼 기계] X를 누르는 동안 오른쪽, Space를 누르는 동안 안쪽 → 떼면 바로 내려갑니다.
-[지폐교환기] 10,000원·5,000원권을 1,000원권으로 바꿔 줍니다.
-[캡슐뽑기] 동전/지폐를 넣고 손잡이를 돌려 캡슐을 뽑아요.
-[사장 모드] F1(또는 Tab, 카운터에서 E) — 기계별 집게 힘(잡을 때/올라갈 때/정상/이동),
-  강집게 확률(N판마다·매출 기준), 타이머, 가격, 조작 방식, 발 개수, 흔들림, 상품 진열(클릭해서 놓기)과 매출 장부까지!
+[나의 전시장] 진열된 인형을 보고 E → 확대 보기(마우스 드래그로 돌리기, 휠/+/-로 확대)
+[지폐교환기] 큰 지폐를 1,000원권으로   [캡슐뽑기] 돈을 넣고 손잡이를 돌려요
+[사장 모드] F1/Tab 또는 카운터에서 E — 난이도·가격·시간을 버튼 하나로, 상품 채우기, 매출 보기
 [I] 내 수집함   [H] 이 도움말   [Esc] 메뉴"""
 	var l := UIKit.label(txt, 19)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -349,6 +367,7 @@ func _build_collection(root: Control) -> void:
 	var v := VBoxContainer.new()
 	collection_panel.add_child(v)
 	v.add_child(UIKit.title("내 수집함 🧸"))
+	v.add_child(UIKit.label("이름을 누르면 돌려 보며 자세히 볼 수 있어요", 16, Color(0.45, 0.35, 0.45)))
 	collection_stats = UIKit.label("", 20)
 	v.add_child(collection_stats)
 	var sc := ScrollContainer.new()
@@ -372,7 +391,14 @@ func _toggle_collection() -> void:
 		for e in Game.collection:
 			counts[e["id"]] = int(counts.get(e["id"], 0)) + 1
 		for id in counts:
-			collection_grid.add_child(UIKit.label("%s  x%d" % [PrizeCatalog.display_name(id), counts[id]], 20))
+			var last := -1
+			for k in Game.collection.size():
+				if Game.collection[k]["id"] == id:
+					last = k
+			var idx := last
+			var b := UIKit.button("%s  x%d  🔍" % [PrizeCatalog.display_name(id), counts[id]], func(): open_inspector(idx))
+			b.custom_minimum_size = Vector2(280, 44)
+			collection_grid.add_child(b)
 		var n := Game.collection.size()
 		var spent := int(Game.stats["spent"])
 		var avg := spent / n if n > 0 else 0
@@ -381,6 +407,12 @@ func _toggle_collection() -> void:
 			worth += PrizeCatalog.cost(e["id"])
 		collection_stats.text = "획득 %d개 · 도전 %d판 · 쓴 돈 %s · 1개당 평균 %s · 상품 원가 합계 %s" % [
 			n, int(Game.stats["plays"]), Game.won(spent), Game.won(avg), Game.won(worth)]
+
+
+func open_inspector(entry_index: int) -> void:
+	if collection_panel.visible:
+		collection_panel.visible = false
+	inspector.open_entry(entry_index)
 
 
 func _toggle_owner() -> void:

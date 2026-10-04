@@ -1,0 +1,42 @@
+{
+ "id": "whale",
+ "fabric": "minky",
+ "height": 0.09,
+ "parts": [
+  {
+   "name": "body",
+   "origin": [
+    0.0,
+    0.04,
+    0.0
+   ],
+   "mass": 0.04,
+   "shapes": [
+    {
+     "type": "sphere",
+     "center": [
+      0.0,
+      0.002,
+      0.03
+     ],
+     "radius": 0.04
+    },
+    {
+     "type": "capsule",
+     "a": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "b": [
+      0.0,
+      -0.003,
+      -0.06
+     ],
+     "radius": 0.022
+    }
+   ]
+  }
+ ],
+ "joints": []
+}

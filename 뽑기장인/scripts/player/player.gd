@@ -24,6 +24,8 @@ var _cam_tween: Tween
 var _step_t := 0.0
 var _step_i := 0
 var ui_open := false
+var zoom := 0.0  ## +/- 키로 확대(양수) / 축소(음수), 도 단위
+const VIEW_NAMES := ["정면", "오른쪽 비스듬히", "왼쪽 비스듬히", "가까이"]
 
 
 func _ready() -> void:
@@ -65,9 +67,30 @@ func _unhandled_input(event: InputEvent) -> void:
 			# 기계 앞에서는 고개만 살짝 돌려 볼 수 있다
 			_look_off.x = clamp(_look_off.x - event.relative.x * s, -0.6, 0.6)
 			_look_off.y = clamp(_look_off.y - event.relative.y * s, -0.45, 0.45)
-	elif event is InputEventMouseButton and event.pressed and mode != Mode.UI and not ui_open:
-		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not Game.owner_mode:
+	elif event is InputEventMouseButton and event.pressed and not ui_open:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_add_zoom(4.0)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_add_zoom(-4.0)
+		elif Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not Game.owner_mode:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _base_fov() -> float:
+	return 62.0 if mode == Mode.MACHINE else 70.0
+
+
+func _add_zoom(d: float) -> void:
+	zoom = clamp(zoom + d, -20.0, 45.0)
+
+
+func _process(delta: float) -> void:
+	if not ui_open:
+		if Input.is_action_pressed("zoom_in"):
+			_add_zoom(40.0 * delta)
+		if Input.is_action_pressed("zoom_out"):
+			_add_zoom(-40.0 * delta)
+	camera.fov = lerp(camera.fov, _base_fov() - zoom, min(1.0, delta * 12.0))
 
 
 func _physics_process(delta: float) -> void:
@@ -136,6 +159,7 @@ func enter_machine(m: ClawMachine) -> void:
 	m.player_present = true
 	mode = Mode.MACHINE
 	view_index = 0
+	zoom = 0.0
 	_look_off = Vector2.ZERO
 	velocity = Vector3.ZERO
 	mode_changed.emit(mode)
@@ -162,7 +186,7 @@ func leave_machine() -> void:
 		_cam_tween.kill()
 	_cam_tween = create_tween()
 	_cam_tween.tween_property(camera, "transform", Transform3D(), 0.35).set_trans(Tween.TRANS_SINE)
-	camera.fov = 70
+	zoom = 0.0
 
 
 func _move_camera_to(xf: Transform3D) -> void:
@@ -171,17 +195,18 @@ func _move_camera_to(xf: Transform3D) -> void:
 	var local := head.global_transform.affine_inverse() * xf
 	_cam_tween = create_tween()
 	_cam_tween.tween_property(camera, "transform", local, 0.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	camera.fov = 62
 
 
 func cycle_view() -> void:
 	if machine == null:
 		return
-	view_index = (view_index + 1) % 3
-	var cams := [machine.front_cam, machine.side_cam, machine.close_cam]
+	view_index = (view_index + 1) % 4
 	_look_off = Vector2.ZERO
-	_move_camera_to(cams[view_index].global_transform)
-	Game.say(["정면 보기", "비스듬히 보기 (앞뒤 깊이 확인!)", "가까이 보기"][view_index])
+	_move_camera_to(_view_cams()[view_index].global_transform)
+
+
+func _view_cams() -> Array:
+	return [machine.front_cam, machine.side_cam, machine.side_cam_l, machine.close_cam]
 
 
 func _machine_controls(_delta: float) -> void:
@@ -217,8 +242,7 @@ func _machine_controls(_delta: float) -> void:
 		return
 	# 고개 돌리기(마우스) 반영
 	if _cam_tween == null or not _cam_tween.is_running():
-		var cams := [machine.front_cam, machine.side_cam, machine.close_cam]
-		var base_xf: Transform3D = cams[view_index].global_transform
+		var base_xf: Transform3D = _view_cams()[view_index].global_transform
 		var rot := Basis(Vector3.UP, _look_off.x) * Basis(base_xf.basis.x.normalized(), _look_off.y)
 		var xf := Transform3D(rot * base_xf.basis, base_xf.origin)
 		camera.global_transform = camera.global_transform.interpolate_with(xf, 0.25)

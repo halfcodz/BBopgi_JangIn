@@ -281,13 +281,16 @@ func _add_head_visual(h: Node3D) -> void:
 ## 헤드를 옮긴다(물리 프레임에서 호출). top: 줄이 매달린 지점(캐리지)
 func move_head(xf: Transform3D, top: Vector3) -> void:
 	head.global_transform = xf
-	var hook := xf * Vector3(0, head_height + 0.01 * size, 0)
+	# 줄은 캐리지 아래 고정점(top)에서 헤드 위 고리까지 곧게 이어진다
+	var hook := xf * Vector3(0, head_height + 0.012 * size, 0)
 	var len := top.distance_to(hook)
 	if len > 0.001:
 		var mid := (top + hook) * 0.5
-		var dir := (top - hook).normalized()
-		var b := Basis(Quaternion(Vector3.UP, dir)) if dir.cross(Vector3.UP).length() > 0.0001 else Basis()
-		cable.global_transform = Transform3D(b.scaled(Vector3(1, len, 1)), mid)
+		var dir := (top - hook) / len
+		var rot := Basis()
+		if abs(dir.dot(Vector3.UP)) < 0.9999:
+			rot = Basis(Quaternion(Vector3.UP, dir))
+		cable.global_transform = Transform3D(rot * Basis.from_scale(Vector3(1, len, 1)), mid)
 
 
 ## 집게 힘 0.0~1.0
