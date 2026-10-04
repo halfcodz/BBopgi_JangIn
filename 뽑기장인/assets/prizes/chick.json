@@ -1,0 +1,37 @@
+{
+ "id": "chick",
+ "fabric": "minky",
+ "height": 0.12,
+ "parts": [
+  {
+   "name": "body",
+   "origin": [
+    0.0,
+    0.045,
+    0.0
+   ],
+   "mass": 0.05,
+   "shapes": [
+    {
+     "type": "sphere",
+     "center": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "radius": 0.041
+    },
+    {
+     "type": "sphere",
+     "center": [
+      0.0,
+      0.037,
+      0.008
+     ],
+     "radius": 0.029
+    }
+   ]
+  }
+ ],
+ "joints": []
+}

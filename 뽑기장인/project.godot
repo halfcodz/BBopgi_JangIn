@@ -11,18 +11,51 @@ config_version=5
 [application]
 
 config/name="뽑기장인"
+config/description="실제 인형뽑기방을 그대로 옮긴 3D 인형뽑기 연습 게임. 사장이 되어 기계 세팅까지 직접!"
+run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+Game="*res://scripts/autoload/game.gd"
+Sfx="*res://scripts/autoload/sfx.gd"
+
 [display]
 
+window/size/viewport_width=1600
+window/size/viewport_height=900
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[gui]
+
+theme/custom_font="res://assets/fonts/Jua-Regular.ttf"
+
+[layer_names]
+
+3d_physics/layer_1="환경"
+3d_physics/layer_2="상품"
+3d_physics/layer_3="집게"
+3d_physics/layer_4="플레이어"
+3d_physics/layer_5="상호작용"
 
 [physics]
 
 3d/physics_engine="Jolt Physics"
+common/physics_ticks_per_second=120
+common/max_physics_steps_per_frame=12
+jolt_physics_3d/simulation/velocity_steps=14
+jolt_physics_3d/simulation/position_steps=4
+jolt_physics_3d/simulation/speculative_contact_distance=0.01
+jolt_physics_3d/simulation/penetration_slop=0.003
+3d/default_gravity=9.81
 
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+anti_aliasing/quality/msaa_3d=2
+anti_aliasing/quality/screen_space_aa=1
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
+lights_and_shadows/positional_shadow/soft_shadow_filter_quality=3
+environment/defaults/default_clear_color=Color(0.08, 0.07, 0.1, 1)
