@@ -68,7 +68,7 @@ func _build() -> void:
 	add_child(head)
 
 	for i in prong_count:
-		var a := TAU * i / prong_count + (PI / 2.0 if prong_count == 2 else PI / 6.0)
+		var a := TAU * i / prong_count + (0.0 if prong_count == 2 else PI / 6.0)
 		var r := Vector3(cos(a), 0, sin(a))
 		var t := r.cross(Vector3.UP)
 		var basis := Basis(r, Vector3.UP, t)

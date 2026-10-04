@@ -226,6 +226,8 @@ func _build_easy_tab() -> void:
 		var g: float = float(machine.settings.get("bridge_gap", 0.17))
 		var cg := 0 if g < 0.16 else (1 if g < 0.18 else 2)
 		_big_choice(tab_easy, "봉(다리) 간격", ["좁게(어려움)", "보통", "넓게(쉬움)"], cg, func(i): _apply("bridge_gap", gaps[i]), 3)
+		var lays := ["2bar", "3bar", "v", "step"]
+		_big_choice(tab_easy, "다리 모양 (실제 일본 기계 세팅)", ["기본 2봉 다리", "3봉 다리", "ハの字 (벌어지는 다리)", "단차 다리 (뒤가 높음)"], lays.find(String(machine.settings.get("bridge_layout", "2bar"))), func(i): _apply("bridge_layout", lays[i]))
 
 
 # ------------------------------------------------------------------ 집게 힘·확률

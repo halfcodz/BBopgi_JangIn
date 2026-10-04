@@ -95,7 +95,7 @@ func _initialize() -> void:
 		var hb = tp.bodies[1] if tp.bodies.size() > 1 else tp.bodies[0]
 		target = m.to_local(hb.global_position)
 		if kind == "bridge":
-			target.x += 0.1 * (1 if rng.randf() < 0.5 else -1)
+			target.z += 0.1 * (1 if rng.randf() < 0.5 else -1)
 
 		var start_y: float = tp.get_center().y
 		# 캐리지를 목표 위로
@@ -138,6 +138,8 @@ func _initialize() -> void:
 		if w > 0:
 			wins += 1
 			m.take_prizes_from_bin()
+		if is_instance_valid(tp):
+			printerr("box local=", m.to_local(tp.get_center()), " rot=", tp.bodies[0].global_rotation_degrees)
 		printerr("land head_y=%.3f base=%.3f" % [m.head_y, m.base_h])
 		print("round %d: target=%s lifted=%.2f strong=%s bin=%d" % [r, tp.prize_id if is_instance_valid(tp) else "?", max_y - start_y, m.strong, w])
 	print("RESULT kind=%s rounds=%d lifted=%d wins=%d" % [kind, rounds, lifted, wins])

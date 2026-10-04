@@ -186,7 +186,7 @@ func _build_machines() -> void:
 	# 일본식 프라이즈 피규어 기계(다리 세팅) 2대
 	var bx := -RX + 0.52
 	_add_machine("bridge_1", "bridge", Vector3(bx, 0, 1.15), PI / 2, Color(0.92, 0.18, 0.25), {"name": "UFO 피규어 · 미루", "prize_ids": ["jp_figure_a"]}, 1)
-	_add_machine("bridge_2", "bridge", Vector3(bx, 0, 2.3), PI / 2, Color(0.2, 0.45, 0.95), {"name": "UFO 피규어 · 보노", "prize_ids": ["jp_figure_b"], "bridge_gap": 0.18}, 1)
+	_add_machine("bridge_2", "bridge", Vector3(bx, 0, 2.3), PI / 2, Color(0.2, 0.45, 0.95), {"name": "UFO 피규어 · 보노", "prize_ids": ["jp_figure_b"], "bridge_gap": 0.17, "bridge_layout": "3bar"}, 1)
 	Build.text(self, "일본식 피규어 존", Vector3(-RX + 0.03, 2.62, 1.75), 90, 0.0018, Color(1.0, 0.95, 0.7), Color(0.9, 0.2, 0.3), "res://assets/fonts/BlackHanSans-Regular.ttf").rotation.y = PI / 2
 
 

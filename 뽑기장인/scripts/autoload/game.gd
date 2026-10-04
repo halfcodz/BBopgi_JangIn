@@ -117,7 +117,7 @@ func default_settings(kind: String) -> Dictionary:
 			"payout_mode": "skill", "payout_every": 20, "payout_revenue": 20000, "strong_power": 100,
 			"move_speed": 0.18, "drop_speed": 0.16, "lift_speed": 0.14, "sway": 0.35,
 			"drop_depth": 100, "open_angle": 52, "auto_drop": true, "start_from_home": true,
-			"bridge_gap": 0.17,
+			"bridge_gap": 0.17, "bridge_layout": "2bar",
 			"prize_ids": ["jp_figure_a", "jp_figure_b"],
 		}
 	if kind == "small":

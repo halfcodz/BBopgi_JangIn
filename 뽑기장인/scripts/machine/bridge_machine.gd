@@ -68,63 +68,95 @@ func _build_bed() -> void:
 	_rebuild_bars()
 
 
+func _layout() -> String:
+	return String(settings.get("bridge_layout", "2bar"))
+
+
+## 다리(봉) 배치: [시작점, 끝점] 목록 (기계 로컬 좌표, 봉 윗면 기준 높이)
+## 실제 일본 기계처럼 봉은 좌우(가로)로 놓이고, 상자는 앞뒤 봉에 걸쳐 놓인다.
+func _bar_lines() -> Array:
+	var g := _gap()
+	var x0 := -ix + 0.025
+	var x1 := ix - 0.025
+	match _layout():
+		"3bar":
+			var h := g * 0.72
+			return [[Vector3(x0, bar_y, h), Vector3(x1, bar_y, h)], [Vector3(x0, bar_y, 0), Vector3(x1, bar_y, 0)], [Vector3(x0, bar_y, -h), Vector3(x1, bar_y, -h)]]
+		"v":
+			# ハの字: 왼쪽은 좁고 오른쪽으로 갈수록 벌어진다
+			return [[Vector3(x0, bar_y, g * 0.5), Vector3(x1, bar_y, g * 0.5)], [Vector3(x0, bar_y, -g * 0.5 + 0.03), Vector3(x1, bar_y, -g * 0.5 - 0.07)]]
+		"step":
+			# 단차: 뒤쪽 봉이 더 높다
+			return [[Vector3(x0, bar_y, g * 0.5), Vector3(x1, bar_y, g * 0.5)], [Vector3(x0, bar_y + 0.04, -g * 0.5), Vector3(x1, bar_y + 0.04, -g * 0.5)]]
+	return [[Vector3(x0, bar_y, g * 0.5), Vector3(x1, bar_y, g * 0.5)], [Vector3(x0, bar_y, -g * 0.5), Vector3(x1, bar_y, -g * 0.5)]]
+
+
+var _built_sig := ""
+
+
+func _rod(a: Vector3, b: Vector3, r: float, mat: Material, collide: bool, pm: PhysicsMaterial = null) -> void:
+	var len := a.distance_to(b)
+	var dir := (b - a) / len
+	var basis := Basis(Quaternion(Vector3.UP, dir)) if abs(dir.dot(Vector3.UP)) < 0.999 else Basis()
+	var xf := Transform3D(basis, (a + b) * 0.5)
+	var mi := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = r
+	cm.bottom_radius = r
+	cm.height = len
+	cm.radial_segments = 20
+	mi.mesh = cm
+	mi.material_override = mat
+	mi.transform = xf
+	bars_root.add_child(mi)
+	if collide:
+		var sb := StaticBody3D.new()
+		sb.collision_layer = LAYER_ENV
+		if pm:
+			sb.physics_material_override = pm
+		var cs := CollisionShape3D.new()
+		var cy := CylinderShape3D.new()
+		cy.radius = r
+		cy.height = len
+		cs.shape = cy
+		sb.add_child(cs)
+		sb.transform = xf
+		bars_root.add_child(sb)
+
+
 func _rebuild_bars() -> void:
 	if bars_root:
-		bars_root.queue_free()
+		bars_root.free()
 	bars_root = Node3D.new()
 	bars_root.name = "Bars"
 	add_child(bars_root)
+	_built_sig = "%s_%.3f" % [_layout(), _gap()]
 	var chrome := _mat(Color(0.88, 0.88, 0.9), 0.15, 1.0)
-	var rubber := _mat(Color(0.1, 0.1, 0.12), 0.7)
-	var post := _mat(Color(0.75, 0.75, 0.78), 0.3, 0.7)
+	var rubber := _mat(Color(0.08, 0.08, 0.1), 0.75)
+	var alu := _mat(Color(0.72, 0.73, 0.76), 0.3, 0.8)
 	var pm := PhysicsMaterial.new()
-	pm.friction = 0.55
-	var r := 0.013
-	var length := z_front - z_back - 0.08
+	pm.friction = 0.6
+	var r := 0.0135
+	# 양옆 벽에 붙은 세로 프레임(봉을 고정하는 브래킷 레일)
 	for sx in [-1.0, 1.0]:
-		var x: float = sx * _gap() * 0.5
-		var mi := MeshInstance3D.new()
-		var cm := CylinderMesh.new()
-		cm.top_radius = r
-		cm.bottom_radius = r
-		cm.height = length
-		cm.radial_segments = 20
-		mi.mesh = cm
-		mi.material_override = chrome
-		mi.rotation.x = PI / 2
-		mi.position = Vector3(x, bar_y - r, (z_back + z_front) * 0.5)
-		bars_root.add_child(mi)
-		# 가운데 고무 튜브(미끄럼 방지)
-		var rb := MeshInstance3D.new()
-		var rm := CylinderMesh.new()
-		rm.top_radius = r + 0.002
-		rm.bottom_radius = r + 0.002
-		rm.height = length * 0.6
-		rm.radial_segments = 20
-		rb.mesh = rm
-		rb.material_override = rubber
-		rb.rotation.x = PI / 2
-		rb.position = mi.position
-		bars_root.add_child(rb)
-		var sb := StaticBody3D.new()
-		sb.collision_layer = LAYER_ENV
-		sb.physics_material_override = pm
-		var cs := CollisionShape3D.new()
-		var cy := CylinderShape3D.new()
-		cy.radius = r + 0.002
-		cy.height = length
-		cs.shape = cy
-		sb.add_child(cs)
-		sb.rotation.x = PI / 2
-		sb.position = mi.position
-		bars_root.add_child(sb)
-		# 받침 기둥(앞/뒤)
-		for zz in [z_back + 0.05, z_front - 0.05]:
-			var h: float = bar_y - (base_h - 0.25)
-			_box(Vector3(0.03, h, 0.03), Vector3(x, base_h - 0.25 + h * 0.5 - r, zz), post, false, bars_root)
-	# 봉 끝 고정 블록(상자가 앞뒤로 빠지지 않도록 약간의 턱)
-	for zz in [z_back + 0.03, z_front - 0.03]:
-		_box(Vector3(_gap() + 0.08, 0.02, 0.02), Vector3(0, bar_y - 0.03, zz), post, false, bars_root)
+		var fx: float = sx * (ix - 0.012)
+		_box(Vector3(0.02, bar_y - base_h + 0.16, 0.05), Vector3(fx, (base_h - 0.06 + bar_y + 0.1) * 0.5, z_front - 0.06), alu, false, bars_root)
+		_box(Vector3(0.02, bar_y - base_h + 0.16, 0.05), Vector3(fx, (base_h - 0.06 + bar_y + 0.1) * 0.5, z_back + 0.06), alu, false, bars_root)
+		_box(Vector3(0.02, 0.04, z_front - z_back - 0.06), Vector3(fx, bar_y - 0.05, (z_front + z_back) * 0.5), alu, false, bars_root)
+	for line in _bar_lines():
+		var a: Vector3 = line[0]
+		var b: Vector3 = line[1]
+		var ca := a - Vector3(0, r, 0)
+		var cb := b - Vector3(0, r, 0)
+		_rod(ca, cb, r, chrome, true, pm)
+		# 가운데 미끄럼 방지 고무 + 양 끝 고정 브래킷
+		_rod(ca.lerp(cb, 0.2), ca.lerp(cb, 0.8), r + 0.0018, rubber, false)
+		for e in [ca, cb]:
+			var ep: Vector3 = e
+			_box(Vector3(0.03, 0.05, 0.035), Vector3(sign(ep.x) * (ix - 0.02), ep.y - 0.012, ep.z), alu, false, bars_root)
+	# 뒤쪽 가로 철제 가드(상자가 뒤로 넘어가 끼지 않도록)와 앞쪽 낮은 가드
+	_rod(Vector3(-ix + 0.02, bar_y + 0.09, z_back + 0.04), Vector3(ix - 0.02, bar_y + 0.09, z_back + 0.04), 0.01, chrome, true)
+	_rod(Vector3(-ix + 0.02, bar_y - 0.07, z_front - 0.03), Vector3(ix - 0.02, bar_y - 0.07, z_front - 0.03), 0.009, chrome, false)
 
 
 func _build_chute() -> void:
@@ -183,29 +215,51 @@ func fill_random(count: int, ids: Array = []) -> void:
 	count = clampi(count, 1, 2)
 	for i in count:
 		var id: String = ids[rng.randi() % ids.size()]
-		var z := 0.0 if count == 1 else (-0.12 + i * 0.24)
-		_place_on_bars(id, z, rng)
+		var x := 0.0 if count == 1 else (-0.2 + i * 0.4)
+		if _layout() == "v" and count == 1:
+			x = -0.18
+		_place_on_bars(id, x, rng)
 
 
-func _place_on_bars(id: String, z: float, rng: RandomNumberGenerator) -> Prize:
-	var lp := Vector3(rng.randf_range(-0.02, 0.02), bar_y + 0.004, z)
-	var p := add_prize(id, to_global(lp), PI if rng.randf() < 0.5 else 0.0, null)
+## 상자를 눕힌 자세(창이 위, 긴 변이 앞뒤)로 만드는 회전
+const BOX_LAY := Basis(Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(0, 1, 0))
+
+
+func _place_on_bars(id: String, x: float, rng: RandomNumberGenerator) -> Prize:
+	# 실제 일본 기계처럼 상자는 눕혀서(창이 위) 앞뒤 봉에 걸쳐 놓는다
+	var top := bar_y + (0.04 if _layout() == "step" else 0.0)
+	var p := add_prize(id, to_global(Vector3(x, top + 0.2, 0)), 0.0, null)
+	if p == null:
+		return null
+	var b := BOX_LAY
+	if rng.randf() < 0.5:
+		b = Basis(Vector3.UP, PI) * b
+	var half_h := 0.065
+	var center := Vector3(x + rng.randf_range(-0.015, 0.015), top + half_h + 0.004, rng.randf_range(-0.01, 0.01))
+	# 모델 원점은 상자 바닥면(모델 -Y 쪽) 중앙 → 중심에서 모델 +Y 방향 반대로 0.10
+	var origin := center - b * Vector3(0, 0.10, 0)
+	p.global_transform = global_transform * Transform3D(b, origin)
 	return p
 
 
 func _return_to_bed(p: Prize) -> void:
 	if not is_instance_valid(p):
 		return
+	var id := p.prize_id
+	p.queue_free()
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	p.teleport_to(to_global(Vector3(0, bar_y + 0.12, 0.0)), 0.0)
-	for b in p.bodies:
-		b.global_transform = Transform3D(global_transform.basis, b.global_position)
+	_place_on_bars(id, 0.0, rng)
 
 
 func _on_settings_changed(id: String) -> void:
 	super._on_settings_changed(id)
 	if id == machine_id and state == State.IDLE and bars_root:
-		var cur: float = abs(bars_root.get_child(0).position.x) * 2.0 if bars_root.get_child_count() > 0 else 0.0
-		if abs(cur - _gap()) > 0.002:
+		if _built_sig != "%s_%.3f" % [_layout(), _gap()]:
 			_rebuild_bars()
+			# 새 다리 위에 상자를 다시 올려 둔다
+			var had := get_prizes().size()
+			clear_prizes()
+			await get_tree().process_frame
+			fill_random(max(had, 1))
+			save_layout()
