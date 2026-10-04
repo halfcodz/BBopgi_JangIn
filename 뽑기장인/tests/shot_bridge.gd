@@ -9,7 +9,7 @@ func _initialize() -> void:
 	for k in 300:
 		await physics_frame
 	var player = main.player
-	for mi in [8, 9]:
+	for mi in [19, 21]:
 		player.enter_machine(main.shop.machines[mi])
 		for v in [0, 1]:
 			for k in 90:

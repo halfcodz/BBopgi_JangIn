@@ -1,0 +1,35 @@
+{
+ "id": "slime_cup",
+ "fabric": "minky",
+ "height": 0.06,
+ "parts": [
+  {
+   "name": "body",
+   "origin": [
+    0.0,
+    0.025,
+    0.0
+   ],
+   "mass": 0.06,
+   "shapes": [
+    {
+     "type": "cylinder",
+     "center": [
+      0,
+      0.002,
+      0
+     ],
+     "radius": 0.031,
+     "height": 0.058,
+     "rot": [
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  }
+ ],
+ "joints": [],
+ "material": "goods_plastic"
+}

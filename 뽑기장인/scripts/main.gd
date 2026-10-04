@@ -12,7 +12,8 @@ func _ready() -> void:
 	add_child(shop)
 	player = Player.new()
 	player.name = "Player"
-	player.position = Vector3(2.2, 0.05, 3.3)
+	player.position = Vector3(2.2, 0.05, 4.0)
+	player.rotation.y = 0.0
 	player.rotation.y = 0.0
 	add_child(player)
 	hud = HUD.new()

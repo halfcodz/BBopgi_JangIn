@@ -1,0 +1,38 @@
+{
+ "id": "gift_powerbank",
+ "fabric": "minky",
+ "height": 0.14,
+ "parts": [
+  {
+   "name": "box",
+   "origin": [
+    0.0,
+    0.07,
+    0.0
+   ],
+   "mass": 0.2,
+   "shapes": [
+    {
+     "type": "box",
+     "center": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "half": [
+      0.0425,
+      0.07,
+      0.0175
+     ],
+     "rot": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ ],
+ "joints": [],
+ "material": "printed"
+}

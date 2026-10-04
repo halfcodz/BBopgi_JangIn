@@ -10,13 +10,13 @@ var bars_root: Node3D
 
 func _setup_dims() -> void:
 	W = 1.0
-	D = 0.95
+	D = 1.2
 	base_h = 0.8
 	glass_top = 1.86
 	header_h = 0.3
 	ix = 0.45
-	z_back = -0.42
-	z_front = 0.40
+	z_back = -0.42   # 그 뒤 15cm 는 재고 상자 진열 선반(실제 매장 기계처럼)
+	z_front = 0.48
 	chute_x = 0.2   # 앞쪽 배출구 구멍 오른쪽 끝
 	chute_z = 0.0
 	claw_size = 1.0
@@ -30,7 +30,110 @@ func _setup_dims() -> void:
 
 ## 일본 기계처럼 집게는 왼쪽 앞(배출구 위) 모서리에서 출발한다
 func _home() -> Vector3:
-	return Vector3(-ix + 0.12, 0, z_front - 0.12)
+	return Vector3(-ix + 0.18, 0, z_front - 0.14)
+
+
+# ------------------------------------------------------------------ 외관: 일본 프라이즈 매장의 밝은 흰색 기계
+func _cabinet_paint() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.94, 0.95, 0.97)
+	m.roughness = 0.2
+	m.metallic = 0.1
+	m.clearcoat_enabled = true
+	m.clearcoat = 1.0
+	return m
+
+
+func _header_tex_path() -> String:
+	return "res://assets/textures/machine/header_ufo.png"
+
+
+func _panel_tex_path() -> String:
+	return "res://assets/textures/machine/panel_ufo.png"
+
+
+func _use_bulbs() -> bool:
+	return false
+
+
+func _build_cabinet() -> void:
+	super._build_cabinet()
+	# 기둥·간판 아래 테마색 LED 줄(사진 속 파란 조명 띠)
+	var led := _mat(theme_color, 0.3)
+	led.emission_enabled = true
+	led.emission = theme_color
+	led.emission_energy_multiplier = 2.5
+	var hd := D * 0.5
+	_box(Vector3(W, 0.012, 0.012), Vector3(0, glass_top + 0.006, hd + 0.006), led)
+	_box(Vector3(W, 0.012, 0.012), Vector3(0, base_h - 0.02, hd + 0.006), led)
+	for sx in [-1.0, 1.0]:
+		_box(Vector3(0.008, glass_top - base_h, 0.008), Vector3(sx * (W * 0.5 - 0.005), (glass_top + base_h) * 0.5, hd + 0.004), led)
+	# 천장 안쪽 밝은 LED 패널(흰 실내)
+	var panel := _mat(Color(1, 1, 1), 0.2)
+	panel.emission_enabled = true
+	panel.emission = Color(1.0, 0.99, 0.97)
+	panel.emission_energy_multiplier = 2.2
+	_box(Vector3(ix * 1.9, 0.006, 0.08), Vector3(0, glass_top - 0.008, z_front - 0.06), panel)
+	interior_light.light_energy = 3.0
+
+
+## 뒤쪽: 투명 칸막이 너머 재고 상자 진열 선반 + 상품 큰 포스터
+func _build_backdrop(gh: float, white: Material) -> void:
+	var hd := D * 0.5
+	var shelf_mat := _mat(Color(0.97, 0.97, 0.98), 0.25)
+	_box(Vector3(W, gh, 0.02), Vector3(0, base_h + gh * 0.5, -hd + 0.01), white)
+	# 투명 칸막이(상자는 앞쪽 구역에서만 움직인다)
+	var acr := StandardMaterial3D.new()
+	acr.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	acr.albedo_color = Color(0.92, 0.96, 1.0, 0.08)
+	acr.roughness = 0.03
+	acr.metallic_specular = 0.9
+	_box(Vector3(ix * 2.0, gh, 0.006), Vector3(0, base_h + gh * 0.5, z_back - 0.005), acr)
+	var ids: Array = settings.get("prize_ids", ["jp_figure_a"])
+	var item := PrizeCatalog.get_item(String(ids[0]))
+	# 큰 포스터(상자 앞면 그림을 크게)
+	if item.has("texture"):
+		var pm := StandardMaterial3D.new()
+		pm.albedo_texture = load(item["texture"])
+		pm.uv1_scale = Vector3(0.6, 0.4, 1)
+		pm.roughness = 0.4
+		pm.emission_enabled = true
+		pm.emission_texture = pm.albedo_texture
+		pm.emission_energy_multiplier = 0.25
+		var q := MeshInstance3D.new()
+		var qm := QuadMesh.new()
+		qm.size = Vector2(0.84, 0.56)
+		q.mesh = qm
+		q.material_override = pm
+		q.position = Vector3(0, glass_top - 0.36, -hd + 0.025)
+		add_child(q)
+	# 재고 상자 선반 2단 × 3개
+	var sz := (z_back - 0.01) - (-hd + 0.03)
+	for row in 2:
+		var y0 := base_h - 0.02 + row * 0.19
+		_box(Vector3(ix * 2.0, 0.012, sz + 0.02), Vector3(0, y0 - 0.006, (z_back + -hd) * 0.5), shelf_mat)
+		for k in 3:
+			var id := String(ids[(k + row) % ids.size()])
+			_display_box(id, Vector3(-0.29 + k * 0.29, y0, (z_back + -hd) * 0.5 + 0.01))
+
+
+func _display_box(id: String, pos: Vector3) -> void:
+	var item := PrizeCatalog.get_item(id)
+	if item.is_empty():
+		return
+	var scene := PrizeFactory.load_scene(String(item["model"]))
+	if scene == null:
+		return
+	var inst := scene.instantiate()
+	var mat := PrizeFactory._rigid_material("printed", item["colorways"][0], item)
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		var copy := MeshInstance3D.new()
+		copy.mesh = mi.mesh
+		copy.material_override = mat
+		copy.scale = Vector3.ONE * 0.8
+		copy.position = pos
+		add_child(copy)
+	inst.free()
 
 
 func _gap() -> float:
@@ -52,7 +155,9 @@ func _build_bed() -> void:
 	var depth := z_front - z_back
 	var ang := atan2(drop, depth)
 	var len := sqrt(drop * drop + depth * depth)
-	var slope := _box(Vector3(ix * 2.0, 0.03, len + 0.05), Vector3(0, (base_h - 0.04 + bin_y + 0.03) * 0.5, (z_back + z_front) * 0.5), felt, false, null, Vector3(ang, 0, 0))
+	var floor_white := _mat(Color(0.95, 0.96, 0.97), 0.15)
+	floor_white.clearcoat_enabled = true
+	var slope := _box(Vector3(ix * 2.0, 0.03, len + 0.05), Vector3(0, (base_h - 0.04 + bin_y + 0.03) * 0.5, (z_back + z_front) * 0.5), floor_white, false, null, Vector3(ang, 0, 0))
 	var sb := StaticBody3D.new()
 	sb.collision_layer = LAYER_ENV
 	var slick := PhysicsMaterial.new()
@@ -65,6 +170,12 @@ func _build_bed() -> void:
 	sb.add_child(cs)
 	sb.transform = slope.transform
 	add_child(sb)
+	# 구덩이 둘레 벽(상자가 기계 밖으로 빠져나가지 않게)
+	var pit_h := base_h - bin_y + 0.1
+	_wall(Vector3(0.04, pit_h, z_front - z_back + 0.3), Vector3(-ix - 0.02, bin_y - 0.05 + pit_h * 0.5, (z_front + z_back) * 0.5 + 0.1))
+	_wall(Vector3(0.04, pit_h, z_front - z_back + 0.3), Vector3(ix + 0.02, bin_y - 0.05 + pit_h * 0.5, (z_front + z_back) * 0.5 + 0.1))
+	_wall(Vector3(ix * 2.0 + 0.08, pit_h, 0.04), Vector3(0, bin_y - 0.05 + pit_h * 0.5, z_back - 0.03))
+	_wall(Vector3(ix * 2.0 + 0.08, 0.04, z_front - z_back + 0.3), Vector3(0, bin_y - 0.07, (z_front + z_back) * 0.5 + 0.1))
 	# 오른쪽 앞(배출구 옆)은 막혀 있으므로 왼쪽으로 흘러가게 하는 경사 칸막이
 	_box(Vector3(0.02, 0.32, 0.3), Vector3(chute_x + 0.01, bin_y + 0.16, z_front - 0.12), inner, true, null, Vector3(0, -0.5, 0))
 	_rebuild_bars()
@@ -137,7 +248,7 @@ func _rebuild_bars() -> void:
 	var rubber := _mat(Color(0.08, 0.08, 0.1), 0.75)
 	var alu := _mat(Color(0.72, 0.73, 0.76), 0.3, 0.8)
 	var pm := PhysicsMaterial.new()
-	pm.friction = 0.6
+	pm.friction = 1.0  # 봉에 씌운 미끄럼 방지 고무
 	var r := 0.0135
 	# 양옆 벽에 붙은 세로 프레임(봉을 고정하는 브래킷 레일)
 	for sx in [-1.0, 1.0]:
@@ -171,6 +282,8 @@ func _build_chute() -> void:
 	# 배출구 받침과 앞턱
 	_box(Vector3(cw, 0.02, 0.18), Vector3((-ix + chute_x) * 0.5, bin_y - 0.01, z_front + 0.04), inner, true, null, Vector3(deg_to_rad(6), 0, 0))
 	_wall(Vector3(cw, 0.04, 0.02), Vector3((-ix + chute_x) * 0.5, bin_y + 0.02, D * 0.5 + 0.02))
+	# 배출구 앞 투명 덮개(밀어서 여는 문): 상자가 굴러 밖으로 튀어나가지 않게
+	_wall(Vector3(cw, open_h, 0.02), Vector3((-ix + chute_x) * 0.5, bin_y + open_h * 0.5, D * 0.5 + 0.035))
 	# 배출 감지: 봉 아래 전체
 	bin_area = Area3D.new()
 	bin_area.collision_layer = 0
@@ -236,7 +349,7 @@ func _place_on_bars(id: String, x: float, rng: RandomNumberGenerator) -> Prize:
 	var b := BOX_LAY
 	if rng.randf() < 0.5:
 		b = Basis(Vector3.UP, PI) * b
-	var half_h := 0.065
+	var half_h := 0.075
 	var center := Vector3(x + rng.randf_range(-0.015, 0.015), top + half_h + 0.004, rng.randf_range(-0.01, 0.01))
 	# 모델 원점은 상자 바닥면(모델 -Y 쪽) 중앙 → 중심에서 모델 +Y 방향 반대로 0.10
 	var origin := center - b * Vector3(0, 0.10, 0)

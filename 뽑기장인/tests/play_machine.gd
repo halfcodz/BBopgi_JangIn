@@ -42,6 +42,8 @@ func _initialize() -> void:
 	m.kind = kind
 	m.machine_id = "play_" + kind
 	m.initial_fill = 16 if kind == "big" else (1 if kind == "bridge" else 20)
+	if OS.get_environment("PRESET") != "":
+		m.preset = JSON.parse_string(OS.get_environment("PRESET"))
 	root.add_child(m)
 	if power >= 0:
 		for k in ["power_grab", "power_lift", "power_top", "power_carry"]:

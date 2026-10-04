@@ -1009,7 +1009,8 @@ JP_RECTS = {"front": (0.0, 0.0, 0.6, 0.4), "back": (0.0, 0.4, 0.6, 0.8), "top": 
 
 
 def figure_jp():
-    size = (0.30, 0.20, 0.13)
+    # 실제 프라이즈 피규어 상자 크기(가로 28 × 세로 20 × 두께 15cm)
+    size = (0.28, 0.20, 0.15)
     m = _uv_box_atlas(size, JP_RECTS)
     m.apply_translation([0, size[1] / 2, 0])
     p = MeshPart("box", m, [0, size[1] / 2, 0], 0.45, [box_shape([0, 0, 0], np.array(size) / 2)])

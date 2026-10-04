@@ -17,6 +17,7 @@ var head: AnimatableBody3D
 var prongs: Array[RigidBody3D] = []
 var hinges: Array[HingeJoint3D] = []
 var cable: MeshInstance3D
+var wire: MeshInstance3D
 var power := 1.0
 var closing := false
 var open_angle := deg_to_rad(42.0)
@@ -27,6 +28,12 @@ var pivot_radius := 0.036
 var prong_mass := 0.05
 var _metal: StandardMaterial3D
 var _dark: StandardMaterial3D
+## UFO형 팔이 버틸 수 있는 무게(팔 하나당, 힘 100% 기준, 뉴턴). 넘으면 팔이 밀려 벌어지며 미끄러진다.
+## 실제 일본 기계처럼 무거운 피규어 상자는 통째로 들리지 않고 살짝 들렸다 미끄러지며 자리만 옮겨진다.
+var arm_hold_full := 4.6
+## 들어 올리는 동안에만 무게 한계를 적용(기계가 켜고 끈다)
+var limit_load := false
+var _yield_left: Array[float] = []
 var _arm_mat: StandardMaterial3D
 var _rubber_mat: StandardMaterial3D
 
@@ -45,11 +52,12 @@ func _make_materials() -> void:
 	_dark.metallic = 0.6
 	_dark.roughness = 0.4
 	_arm_mat = StandardMaterial3D.new()
-	_arm_mat.albedo_color = Color(0.9, 0.9, 0.92)
-	_arm_mat.metallic = 0.9
-	_arm_mat.roughness = 0.18
+	_arm_mat.albedo_color = Color(0.93, 0.94, 0.96)
+	_arm_mat.metallic = 0.55
+	_arm_mat.roughness = 0.12
+	_arm_mat.clearcoat_enabled = true
 	_rubber_mat = StandardMaterial3D.new()
-	_rubber_mat.albedo_color = Color(0.95, 0.35, 0.55)
+	_rubber_mat.albedo_color = Color(0.42, 0.44, 0.47)
 	_rubber_mat.roughness = 0.85
 
 
@@ -59,16 +67,18 @@ func _build() -> void:
 	if max_torque < 0:
 		max_torque = 0.25 * pow(s, 5.5)
 		if style == "ufo":
-			max_torque *= 1.5  # 팔이 길어 같은 토크면 끝 힘이 약하다 → 보정
+			max_torque *= 1.6  # 팔이 길어 같은 토크면 끝 힘이 약하다 → 보정
 	head_radius = 0.042 * s
 	head_height = 0.075 * s
 	pivot_radius = 0.034 * s
 	prong_mass = 0.05 * s
 	if style == "ufo":
-		head_radius = 0.058 * s
-		head_height = 0.07 * s
-		pivot_radius = 0.05 * s
+		# 사진 속 UFO형 집게: 가로로 긴 알약 모양 헤드(폭 15cm) 양 끝 아래에 팔 힌지
+		head_radius = 0.06 * s
+		head_height = 0.064 * s
+		pivot_radius = 0.06 * s
 		prong_mass = 0.06 * s
+		close_angle = 0.0  # 다 오므리면 발끝 사이가 3cm 정도(평소 모습)
 
 	head = AnimatableBody3D.new()
 	head.name = "ClawHead"
@@ -76,10 +86,15 @@ func _build() -> void:
 	head.collision_layer = LAYER_CLAW
 	head.collision_mask = LAYER_PRIZE
 	var hs := CollisionShape3D.new()
-	var cyl := CylinderShape3D.new()
-	cyl.radius = head_radius
-	cyl.height = head_height
-	hs.shape = cyl
+	if style == "ufo":
+		var hb := BoxShape3D.new()
+		hb.size = Vector3(0.15, head_height, 0.066) * Vector3(s, 1, s)
+		hs.shape = hb
+	else:
+		var cyl := CylinderShape3D.new()
+		cyl.radius = head_radius
+		cyl.height = head_height
+		hs.shape = cyl
 	hs.position.y = head_height * 0.5
 	head.add_child(hs)
 	_add_head_visual(head)
@@ -102,7 +117,7 @@ func _build() -> void:
 		prong.contact_monitor = true
 		prong.max_contacts_reported = 6
 		var pm := PhysicsMaterial.new()
-		pm.friction = 0.75 if style == "ufo" else 0.55
+		pm.friction = 0.6 if style == "ufo" else 0.55
 		pm.bounce = 0.0
 		prong.physics_material_override = pm
 		prong.transform = Transform3D(basis, pivot)
@@ -128,33 +143,49 @@ func _build() -> void:
 
 	cable = MeshInstance3D.new()
 	var cm := CylinderMesh.new()
-	cm.top_radius = 0.0022 * max(s, 0.8)
+	cm.top_radius = (0.017 if style == "ufo" else 0.0022) * max(s, 0.8)
 	cm.bottom_radius = cm.top_radius
 	cm.height = 1.0
-	cm.radial_segments = 6
+	cm.radial_segments = 20 if style == "ufo" else 6
 	cable.mesh = cm
 	var cmat := StandardMaterial3D.new()
-	cmat.albedo_color = Color(0.85, 0.85, 0.86)
-	cmat.metallic = 0.8
-	cmat.roughness = 0.35
+	cmat.albedo_color = Color(0.8, 0.81, 0.84) if style == "ufo" else Color(0.85, 0.85, 0.86)
+	cmat.metallic = 0.9 if style == "ufo" else 0.8
+	cmat.roughness = 0.25 if style == "ufo" else 0.35
 	cable.material_override = cmat
 	cable.top_level = true
 	add_child(cable)
+	if style == "ufo":
+		# 파이프 옆으로 내려오는 흰 전선(LED 전원)
+		wire = MeshInstance3D.new()
+		var wm := CylinderMesh.new()
+		wm.top_radius = 0.0028 * s
+		wm.bottom_radius = wm.top_radius
+		wm.height = 1.0
+		wm.radial_segments = 6
+		wire.mesh = wm
+		var wmat := StandardMaterial3D.new()
+		wmat.albedo_color = Color(0.95, 0.95, 0.95)
+		wmat.roughness = 0.5
+		wire.material_override = wmat
+		wire.top_level = true
+		add_child(wire)
 
 
 ## 발 하나의 옆모습(로컬 XY 평면, +X = 바깥, 원점 = 힌지)
 func _prong_profile() -> PackedVector2Array:
 	var s := size
 	if style == "ufo":
-		# 길고 곧은 팔 끝이 안쪽으로 살짝 꺾인 UFO 캐처 팔
+		# 사진 속 UFO형 팔: 헤드 끝에서 바깥 아래로 뻗어 팔꿈치(>)를 이루고, 다시 안쪽으로 모여
+		# 끝에 고무 발판이 안쪽을 향한다. 평소(다 오므린 상태)에는 발끝 사이가 3cm 정도.
 		return PackedVector2Array([
-			Vector2(0.0, 0.004) * s,
-			Vector2(0.008, -0.03) * s,
-			Vector2(0.013, -0.08) * s,
-			Vector2(0.013, -0.14) * s,
-			Vector2(0.006, -0.182) * s,
-			Vector2(-0.006, -0.203) * s,
-			Vector2(-0.016, -0.212) * s,
+			Vector2(0.0, 0.006) * s,
+			Vector2(0.016, -0.012) * s,
+			Vector2(0.062, -0.07) * s,
+			Vector2(0.04, -0.1) * s,
+			Vector2(-0.01, -0.142) * s,
+			Vector2(-0.03, -0.158) * s,
+			Vector2(-0.044, -0.164) * s,
 		])
 	return PackedVector2Array([
 		Vector2(0.0, 0.004) * s,
@@ -170,7 +201,7 @@ func _prong_profile() -> PackedVector2Array:
 func _add_prong_shapes(prong: RigidBody3D) -> void:
 	var pts := _prong_profile()
 	var ufo := style == "ufo"
-	var w := (0.02 if ufo else 0.016) * size
+	var w := (0.013 if ufo else 0.016) * size
 	var th := (0.006 if ufo else 0.007) * size
 	for k in pts.size() - 1:
 		var a := Vector3(pts[k].x, pts[k].y, 0)
@@ -192,14 +223,15 @@ func _add_prong_shapes(prong: RigidBody3D) -> void:
 	prong.add_child(tip)
 	# 보이는 메시: 얇은 금속 판을 곡선을 따라 스윕
 	var mi := MeshInstance3D.new()
-	mi.mesh = _sweep_strip(pts, w * 0.85, th * 0.45)
+	# UFO형 팔은 정면에서 넓게 보이는 얇은 판(폭 1.1cm, 두께 5mm)
+	mi.mesh = _sweep_strip(pts, 0.005 * size, 0.011 * size) if ufo else _sweep_strip(pts, w * 0.85, th * 0.45)
 	mi.material_override = _arm_mat if ufo else _metal
 	prong.add_child(mi)
 	if ufo:
 		# 팔 끝 고무 손톱(爪 커버): 끝 두 마디를 감싸는 두꺼운 고무
 		var sleeve := MeshInstance3D.new()
-		var tip_pts := PackedVector2Array([pts[pts.size() - 3], pts[pts.size() - 2], pts[pts.size() - 1]])
-		sleeve.mesh = _sweep_strip(tip_pts, w * 1.05, th * 1.5)
+		var tip_pts := PackedVector2Array([pts[pts.size() - 3].lerp(pts[pts.size() - 2], 0.5), pts[pts.size() - 2], pts[pts.size() - 1]])
+		sleeve.mesh = _sweep_strip(tip_pts, 0.014 * size, 0.012 * size)
 		sleeve.material_override = _rubber_mat
 		prong.add_child(sleeve)
 	var cap := MeshInstance3D.new()
@@ -318,101 +350,109 @@ func _add_head_visual(h: Node3D) -> void:
 	h.add_child(bottom)
 
 
-## 일본 프라이즈 매장의 UFO형 헤드: 흰 받침 + 투명 돔 + LED 링, 안쪽에 솔레노이드
+## 사진 속 UFO형 헤드: 가로로 긴 알약 모양 흰 몸통, 앞면 짙은 반투명 창 안에 LED 눈,
+## 양 끝 둥근 마개 아래에 팔 힌지, 위로 은색 파이프
 func _add_ufo_head(h: Node3D) -> void:
 	var s := size
 	var white := StandardMaterial3D.new()
-	white.albedo_color = Color(0.96, 0.96, 0.97)
-	white.roughness = 0.3
+	white.albedo_color = Color(0.93, 0.94, 0.95)
+	white.roughness = 0.22
+	white.metallic = 0.15
 	white.clearcoat_enabled = true
-	var base := MeshInstance3D.new()
-	var bm := CylinderMesh.new()
-	bm.top_radius = head_radius * 0.92
-	bm.bottom_radius = head_radius
-	bm.height = head_height * 0.36
-	bm.radial_segments = 40
-	base.mesh = bm
-	base.position.y = head_height * 0.18
-	base.material_override = white
-	h.add_child(base)
-	# 받침 아래 테두리(팔 힌지가 달린 어두운 링)
-	var skirt := MeshInstance3D.new()
-	var sm := CylinderMesh.new()
-	sm.top_radius = head_radius * 1.02
-	sm.bottom_radius = head_radius * 0.8
-	sm.height = 0.012 * s
-	sm.radial_segments = 40
-	skirt.mesh = sm
-	skirt.position.y = 0.0
-	skirt.material_override = _dark
-	h.add_child(skirt)
-	# LED 링
-	var led := StandardMaterial3D.new()
-	led.albedo_color = Color(0.4, 0.9, 1.0)
-	led.emission_enabled = true
-	led.emission = Color(0.3, 0.85, 1.0)
-	led.emission_energy_multiplier = 2.5
-	var ring := MeshInstance3D.new()
-	var rm := TorusMesh.new()
-	rm.inner_radius = head_radius * 0.9
-	rm.outer_radius = head_radius * 0.98
-	rm.rings = 40
-	ring.mesh = rm
-	ring.position.y = head_height * 0.37
-	ring.material_override = led
-	h.add_child(ring)
-	# 안쪽 솔레노이드(돔 너머로 보임)
-	var core := MeshInstance3D.new()
+	white.clearcoat = 0.8
+	var silver := StandardMaterial3D.new()
+	silver.albedo_color = Color(0.78, 0.79, 0.82)
+	silver.roughness = 0.2
+	silver.metallic = 0.85
+	var cy := head_height * 0.5
+	# 몸통: 가로로 누운 캡슐(폭 15cm, 높이 6.4cm, 깊이 6.6cm)
+	var body := MeshInstance3D.new()
+	var cap := CapsuleMesh.new()
+	cap.radius = 0.032 * s
+	cap.height = 0.15 * s
+	cap.radial_segments = 40
+	cap.rings = 12
+	body.mesh = cap
+	body.rotation.z = PI / 2
+	body.scale = Vector3(1.0, 1.0, 1.03)
+	body.position.y = cy
+	body.material_override = white
+	h.add_child(body)
+	# 몸통 둘레 은색 테(앞·뒤 테두리)
+	for zz in [-1.0]:
+		var rim := MeshInstance3D.new()
+		var rc := CapsuleMesh.new()
+		rc.radius = 0.0335 * s
+		rc.height = 0.153 * s
+		rc.radial_segments = 40
+		rc.rings = 8
+		rim.mesh = rc
+		rim.rotation.z = PI / 2
+		rim.scale = Vector3(1.0, 1.0, 0.12)
+		rim.position = Vector3(0, cy, zz * 0.029 * s)
+		rim.material_override = silver
+		h.add_child(rim)
+	# 앞면 짙은 반투명 창
+	var win := MeshInstance3D.new()
+	var wc := CapsuleMesh.new()
+	wc.radius = 0.024 * s
+	wc.height = 0.105 * s
+	wc.radial_segments = 32
+	wc.rings = 8
+	win.mesh = wc
+	win.rotation.z = PI / 2
+	win.scale = Vector3(1.0, 1.0, 0.25)
+	win.position = Vector3(0, cy, 0.03 * s)
+	var wmat := StandardMaterial3D.new()
+	wmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	wmat.albedo_color = Color(0.12, 0.13, 0.16, 0.72)
+	wmat.roughness = 0.05
+	wmat.metallic_specular = 1.0
+	win.material_override = wmat
+	h.add_child(win)
+	# LED 눈: 빨강·노랑·파랑(+초록) 동그라미
+	var eye_cols := [Color(1.0, 0.25, 0.3), Color(1.0, 0.8, 0.2), Color(0.25, 0.55, 1.0), Color(0.3, 0.95, 0.5)]
+	var xs := [-0.024, -0.008, 0.008, 0.024]
+	for k in 4:
+		var dot := MeshInstance3D.new()
+		var dm := SphereMesh.new()
+		dm.radius = 0.0068 * s
+		dm.height = 0.0136 * s
+		dm.radial_segments = 12
+		dm.rings = 6
+		dot.mesh = dm
+		dot.position = Vector3(xs[k] * s, cy + (0.002 if k % 2 == 0 else -0.001) * s, 0.031 * s)
+		var em := StandardMaterial3D.new()
+		em.albedo_color = eye_cols[k]
+		em.emission_enabled = true
+		em.emission = eye_cols[k]
+		em.emission_energy_multiplier = 4.0
+		dot.material_override = em
+		h.add_child(dot)
+	# 양 끝 힌지 마개(팔이 끼워지는 곳)
+	for sx in [-1.0, 1.0]:
+		var hub := MeshInstance3D.new()
+		var hm := CylinderMesh.new()
+		hm.top_radius = 0.012 * s
+		hm.bottom_radius = 0.012 * s
+		hm.height = 0.05 * s
+		hm.radial_segments = 16
+		hub.mesh = hm
+		hub.rotation.x = PI / 2
+		hub.position = Vector3(sx * pivot_radius, 0.006 * s, 0)
+		hub.material_override = silver
+		h.add_child(hub)
+	# 위쪽 파이프 받침
+	var collar := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
-	cm.top_radius = head_radius * 0.38
-	cm.bottom_radius = head_radius * 0.42
-	cm.height = head_height * 0.5
-	core.mesh = cm
-	core.position.y = head_height * 0.55
-	core.material_override = _metal
-	h.add_child(core)
-	var coil := MeshInstance3D.new()
-	var co := CylinderMesh.new()
-	co.top_radius = head_radius * 0.45
-	co.bottom_radius = head_radius * 0.45
-	co.height = head_height * 0.2
-	coil.mesh = co
-	coil.position.y = head_height * 0.5
-	var copper := StandardMaterial3D.new()
-	copper.albedo_color = Color(0.85, 0.45, 0.2)
-	copper.metallic = 1.0
-	copper.roughness = 0.3
-	coil.material_override = copper
-	h.add_child(coil)
-	# 투명 돔
-	var dome := MeshInstance3D.new()
-	var dm := SphereMesh.new()
-	dm.radius = head_radius * 0.93
-	dm.height = head_height * 1.3
-	dm.is_hemisphere = true
-	dm.radial_segments = 40
-	dm.rings = 16
-	dome.mesh = dm
-	dome.position.y = head_height * 0.36
-	var glass := StandardMaterial3D.new()
-	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	glass.albedo_color = Color(0.85, 0.95, 1.0, 0.22)
-	glass.roughness = 0.05
-	glass.metallic_specular = 0.9
-	glass.rim_enabled = true
-	glass.rim = 0.6
-	dome.material_override = glass
-	h.add_child(dome)
-	# 줄 고리
-	var hook := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = 0.006 * s
-	tm.outer_radius = 0.011 * s
-	hook.mesh = tm
-	hook.rotation.x = PI / 2
-	hook.position.y = head_height + 0.008 * s
-	hook.material_override = _metal
-	h.add_child(hook)
+	cm.top_radius = 0.02 * s
+	cm.bottom_radius = 0.026 * s
+	cm.height = 0.016 * s
+	cm.radial_segments = 24
+	collar.mesh = cm
+	collar.position.y = head_height + 0.004 * s
+	collar.material_override = silver
+	h.add_child(collar)
 
 
 ## 헤드를 옮긴다(물리 프레임에서 호출). top: 줄이 매달린 지점(캐리지)
@@ -428,6 +468,10 @@ func move_head(xf: Transform3D, top: Vector3) -> void:
 		if abs(dir.dot(Vector3.UP)) < 0.9999:
 			rot = Basis(Quaternion(Vector3.UP, dir))
 		cable.global_transform = Transform3D(rot * Basis.from_scale(Vector3(1, len, 1)), mid)
+		if wire:
+			# 흰 전선: 파이프 옆을 따라 내려와 헤드 위 왼쪽으로 들어간다
+			var side := xf.basis.x.normalized() * 0.03 * size + xf.basis.z.normalized() * -0.012 * size
+			wire.global_transform = Transform3D(rot * Basis.from_scale(Vector3(1, len, 1)), mid + side)
 
 
 ## 집게 힘 0.0~1.0
@@ -438,13 +482,54 @@ func set_power(p: float) -> void:
 
 func open() -> void:
 	closing = false
+	_set_open_limit(open_angle)
 	_apply_motor()
+
+
+## 배출구 위에서 놓을 때: UFO형 팔은 크게 벌려 끼인 상자도 떨어지게 한다
+func open_release() -> void:
+	closing = false
+	_set_open_limit(maxf(open_angle, deg_to_rad(62.0)) if style == "ufo" else open_angle)
+	_apply_motor()
+
+
+func _set_open_limit(a: float) -> void:
+	for hj in hinges:
+		hj.set_param(HingeJoint3D.PARAM_LIMIT_LOWER, -a)
 
 
 func close(p: float) -> void:
 	closing = true
 	power = clamp(p, 0.0, 1.0)
 	_apply_motor()
+
+
+func _physics_process(delta: float) -> void:
+	if style != "ufo" or not closing or not limit_load:
+		return
+	if _yield_left.size() != prongs.size():
+		_yield_left.resize(prongs.size())
+		_yield_left.fill(0.0)
+	var cap := arm_hold_full * power
+	for i in prongs.size():
+		var st := PhysicsServer3D.body_get_direct_state(prongs[i].get_rid())
+		if st == null:
+			continue
+		var load := 0.0
+		for c in st.get_contact_count():
+			if st.get_contact_collider_object(c) is RigidBody3D:
+				load += absf(st.get_contact_impulse(c).y) / delta
+		var hj := hinges[i]
+		if load > cap:
+			_yield_left[i] = 0.08
+		if _yield_left[i] > 0.0:
+			# 버티지 못하고 팔이 살짝 벌어진다
+			_yield_left[i] -= delta
+			hj.set_param(HingeJoint3D.PARAM_MOTOR_TARGET_VELOCITY, -0.9)
+			hj.set_param(HingeJoint3D.PARAM_MOTOR_MAX_IMPULSE, max_torque * maxf(power, 0.3) * delta)
+			if _yield_left[i] <= 0.0:
+				hj.set_param(HingeJoint3D.PARAM_MOTOR_TARGET_VELOCITY, 4.0)
+				hj.set_param(HingeJoint3D.PARAM_MOTOR_MAX_IMPULSE, max_torque * power * delta)
 
 
 func _apply_motor() -> void:

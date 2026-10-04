@@ -119,7 +119,7 @@ func _ready() -> void:
 	Game.settings_changed.connect(_on_settings_changed)
 	carriage = _home()
 	head_y = rest_y
-	claw.open()  # 실제 기계처럼 평소에는 발이 펼쳐진 상태
+	_rest_claw()
 	_place_claw_now()
 	_update_labels()
 	call_deferred("_initial_prizes")
@@ -202,13 +202,46 @@ func _wall(size: Vector3, pos: Vector3, rot := Vector3.ZERO) -> void:
 	add_child(sb)
 
 
-func _build_cabinet() -> void:
+## 캐비닛 겉면 도장(일본식 기계는 흰색으로 바꾼다)
+func _cabinet_paint() -> StandardMaterial3D:
 	var paint := StandardMaterial3D.new()
 	paint.albedo_color = theme_color
 	paint.roughness = 0.28
 	paint.metallic = 0.15
 	paint.clearcoat_enabled = true
 	paint.clearcoat = 0.8
+	return paint
+
+
+func _header_tex_path() -> String:
+	return "res://assets/textures/machine/header_%s.png" % ("big" if kind != "small" else "small")
+
+
+func _panel_tex_path() -> String:
+	return "res://assets/textures/machine/panel_%s.png" % ("big" if kind != "small" else "small")
+
+
+func _use_bulbs() -> bool:
+	return true
+
+
+## 유리 안쪽 뒷면(인쇄 그림판)
+func _build_backdrop(gh: float, white: Material) -> void:
+	var back := StandardMaterial3D.new()
+	back.albedo_texture = load("res://assets/textures/machine/back_%s.png" % ("big" if kind != "small" else "small"))
+	back.roughness = 0.45
+	var bq := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(ix * 2.0, gh)
+	bq.mesh = qm
+	bq.material_override = back
+	bq.position = Vector3(0, base_h + gh * 0.5, z_back - 0.001)
+	add_child(bq)
+	_box(Vector3(W, gh, 0.02), Vector3(0, base_h + gh * 0.5, -D * 0.5 + 0.01), white)
+
+
+func _build_cabinet() -> void:
+	var paint := _cabinet_paint()
 	var white := _mat(Color(0.96, 0.96, 0.97), 0.3)
 	var chrome := _mat(Color(0.9, 0.9, 0.92), 0.15, 1.0)
 	var dark := _mat(Color(0.08, 0.08, 0.1), 0.6)
@@ -276,23 +309,13 @@ func _build_cabinet() -> void:
 	_wall(Vector3(W, 0.04, D), Vector3(0, glass_top + 0.02, 0))
 
 	# 뒷판(인쇄 그림)
-	var back := StandardMaterial3D.new()
-	back.albedo_texture = load("res://assets/textures/machine/back_%s.png" % tex_tag)
-	back.roughness = 0.45
-	var bq := MeshInstance3D.new()
-	var qm := QuadMesh.new()
-	qm.size = Vector2(ix * 2.0, gh)
-	bq.mesh = qm
-	bq.material_override = back
-	bq.position = Vector3(0, base_h + gh * 0.5, z_back - 0.001)
-	add_child(bq)
-	_box(Vector3(W, gh, 0.02), Vector3(0, base_h + gh * 0.5, -hd + 0.01), white)
+	_build_backdrop(gh, white)
 
 	_build_bed()
 
 	# 위 간판(헤더)
 	var header_mat := StandardMaterial3D.new()
-	header_mat.albedo_texture = load("res://assets/textures/machine/header_%s.png" % tex_tag)
+	header_mat.albedo_texture = load(_header_tex_path())
 	header_mat.emission_enabled = true
 	header_mat.emission_texture = header_mat.albedo_texture
 	header_mat.emission_energy_multiplier = 0.6
@@ -322,7 +345,7 @@ func _build_cabinet() -> void:
 	bulb_off.emission_enabled = true
 	bulb_off.emission = Color(1, 0.8, 0.4)
 	bulb_off.emission_energy_multiplier = 0.25
-	var n := int(W / 0.07)
+	var n := int(W / 0.07) if _use_bulbs() else -1
 	for i in n + 1:
 		for row in [glass_top + 0.03, glass_top + header_h - 0.03]:
 			var b := MeshInstance3D.new()
@@ -433,7 +456,7 @@ func _build_controls() -> void:
 	var hd := D * 0.5
 	var tex_tag := "big" if kind != "small" else "small"
 	var panel_mat := StandardMaterial3D.new()
-	panel_mat.albedo_texture = load("res://assets/textures/machine/panel_%s.png" % tex_tag)
+	panel_mat.albedo_texture = load(_panel_tex_path())
 	panel_mat.roughness = 0.35
 	var panel_root := Node3D.new()
 	panel_root.position = Vector3(0, base_h - 0.03, hd + 0.11)
@@ -616,6 +639,11 @@ func _build_claw() -> void:
 	add_child(claw)
 
 
+## 평소 자세: 집게는 펼쳐 둔다
+func _rest_claw() -> void:
+	claw.open()
+
+
 func _rebuild_claw() -> void:
 	## 발 개수/벌림 각도를 바꾸면 집게를 새로 단다(사장 모드)
 	var old := claw
@@ -627,7 +655,7 @@ func _rebuild_claw() -> void:
 	sway = Vector2.ZERO
 	sway_v = Vector2.ZERO
 	_build_claw()
-	claw.open()
+	_rest_claw()
 	_place_claw_now()
 
 
@@ -943,6 +971,8 @@ func set_buttons(b1: bool, b2: bool) -> void:
 # =================================================================== 진행
 func _set_state(s: int) -> void:
 	state = s
+	if claw:
+		claw.limit_load = s == State.LIFTING or s == State.TOP_HOLD or s == State.RETURNING
 	phase_t = 0.0
 	state_changed.emit(s)
 
@@ -1031,7 +1061,7 @@ func _physics_process(delta: float) -> void:
 				carriage.x = h.x
 				carriage.z = h.z
 				carriage_vel = Vector3.ZERO
-				claw.open()
+				claw.open_release()
 				Sfx.play_at("claw_open", claw.head.global_position)
 				_set_state(State.RELEASING)
 			else:

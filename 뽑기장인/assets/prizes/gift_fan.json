@@ -1,0 +1,38 @@
+{
+ "id": "gift_fan",
+ "fabric": "minky",
+ "height": 0.17,
+ "parts": [
+  {
+   "name": "box",
+   "origin": [
+    0.0,
+    0.085,
+    0.0
+   ],
+   "mass": 0.2,
+   "shapes": [
+    {
+     "type": "box",
+     "center": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "half": [
+      0.045,
+      0.085,
+      0.03
+     ],
+     "rot": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ ],
+ "joints": [],
+ "material": "printed"
+}

@@ -13,6 +13,9 @@ import trimesh
 sys.path.insert(0, os.path.dirname(__file__))
 from sdf import gradient  # noqa: E402
 import plush_models  # noqa: E402
+import goods_models  # noqa: E402
+
+plush_models.MODELS.update(goods_models.MODELS)
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "..", "assets", "prizes")
 
@@ -79,7 +82,7 @@ def build(model_id):
     scene.export(glb)
     meta = {"id": spec["id"], "fabric": spec.get("fabric", "minky"), "height": spec.get("height", 0.3),
             "parts": out_parts, "joints": spec["joints"]}
-    for k in ("rigid", "material"):
+    for k in ("rigid", "material", "ring_top"):
         if k in spec:
             meta[k] = spec[k]
     with open(os.path.join(OUT, f"{model_id}.json"), "w", encoding="utf-8") as fp:

@@ -161,13 +161,46 @@ const LEVELS := [
 ]
 
 
+## 일본식 UFO 기계 난이도: 팔 힘은 실제처럼 약하게 두고, 봉(다리) 간격으로 조절한다
+const BRIDGE_LEVELS := [
+	["😊 쉬움", "봉 간격이 넓어 잘 빠져요", 0.185],
+	["🙂 보통", "실제 매장 기본 세팅", 0.165],
+	["😤 어려움", "상자 두께보다 조금만 넓어요", 0.157],
+	["💸 짠물", "거의 꽉 끼는 간격", 0.152],
+]
+
+
 func _current_level() -> int:
 	var st := machine.settings
+	if machine is BridgeMachine:
+		for i in BRIDGE_LEVELS.size():
+			if absf(float(st.get("bridge_gap", 0.165)) - BRIDGE_LEVELS[i][2]) < 0.001:
+				return i
+		return -1
 	for i in LEVELS.size():
 		var L: Array = LEVELS[i]
 		if int(st["power_grab"]) == L[2] and int(st["power_lift"]) == L[3] and int(st["power_top"]) == L[4] and int(st["power_carry"]) == L[5] and String(st["payout_mode"]) == L[6]:
 			return i
 	return -1
+
+
+func _apply_level(i: int) -> void:
+	var L: Array = LEVELS[i]
+	_apply("power_grab", L[2])
+	_apply("power_lift", L[3])
+	_apply("power_top", L[4])
+	_apply("power_carry", L[5])
+	_apply("payout_mode", L[6])
+	if L[6] == "revenue":
+		_apply("payout_revenue", L[7] * 1000)
+	else:
+		_apply("payout_every", L[7])
+	hud.show_toast("난이도를 '%s'(으)로 바꿨어요" % String(L[0]).substr(2))
+
+
+func _apply_bridge_level(i: int) -> void:
+	_apply("bridge_gap", BRIDGE_LEVELS[i][2])
+	hud.show_toast("난이도를 '%s'(으)로 바꿨어요" % String(BRIDGE_LEVELS[i][0]).substr(2))
 
 
 func _big_choice(parent: Container, title: String, items: Array, current: int, cb: Callable, cols := 2) -> void:
@@ -193,20 +226,14 @@ func _build_easy_tab() -> void:
 	_clear(tab_easy)
 	tab_easy.add_child(UIKit.label("버튼만 누르면 바로 적용돼요. 기계가 쉬고 있을 때 바꾸는 게 좋아요.", 16, Color(0.45, 0.35, 0.45)))
 	var lv := []
-	for L in LEVELS:
-		lv.append("%s\n%s" % [L[0], L[1]])
-	_big_choice(tab_easy, "뽑기 난이도", lv, _current_level(), func(i):
-		var L: Array = LEVELS[i]
-		_apply("power_grab", L[2])
-		_apply("power_lift", L[3])
-		_apply("power_top", L[4])
-		_apply("power_carry", L[5])
-		_apply("payout_mode", L[6])
-		if L[6] == "revenue":
-			_apply("payout_revenue", L[7] * 1000)
-		else:
-			_apply("payout_every", L[7])
-		hud.show_toast("난이도를 '%s'(으)로 바꿨어요" % String(L[0]).substr(2)))
+	if machine is BridgeMachine:
+		for L in BRIDGE_LEVELS:
+			lv.append("%s\n%s" % [L[0], L[1]])
+		_big_choice(tab_easy, "뽑기 난이도", lv, _current_level(), _apply_bridge_level)
+	else:
+		for L in LEVELS:
+			lv.append("%s\n%s" % [L[0], L[1]])
+		_big_choice(tab_easy, "뽑기 난이도", lv, _current_level(), _apply_level)
 	var per := int(machine.settings["plays_per_1000"])
 	_big_choice(tab_easy, "가격", ["1,000원에 1판", "1,000원에 2판", "1,000원에 3판"], per - 1, func(i):
 		_apply("plays_per_1000", i + 1)
@@ -215,17 +242,14 @@ func _build_easy_tab() -> void:
 	_big_choice(tab_easy, "제한 시간", ["15초", "30초", "45초", "60초"], times.find(int(machine.settings["timer_sec"])), func(i): _apply("timer_sec", times[i]), 4)
 	var modes := ["joystick", "2button"]
 	_big_choice(tab_easy, "조작 방법", ["🕹 조이스틱 + 버튼", "🔘 버튼 2개(→ 후 ↑)"], modes.find(String(machine.settings["control_mode"])), func(i): _apply("control_mode", modes[i]))
-	_big_choice(tab_easy, "집게 발", ["3발 집게", "2발 집게"], 0 if int(machine.settings["prong_count"]) == 3 else 1, func(i): _apply("prong_count", 3 if i == 0 else 2))
+	if not machine is BridgeMachine:
+		_big_choice(tab_easy, "집게 발", ["3발 집게", "2발 집게"], 0 if int(machine.settings["prong_count"]) == 3 else 1, func(i): _apply("prong_count", 3 if i == 0 else 2))
 	var sways := [0.0, 0.5, 0.9]
 	var cur_sway := 0
 	var sw := float(machine.settings["sway"])
 	cur_sway = 0 if sw < 0.25 else (1 if sw < 0.7 else 2)
 	_big_choice(tab_easy, "줄 흔들림", ["없음", "보통", "많이"], cur_sway, func(i): _apply("sway", sways[i]), 3)
 	if machine is BridgeMachine:
-		var gaps := [0.15, 0.17, 0.19]
-		var g: float = float(machine.settings.get("bridge_gap", 0.17))
-		var cg := 0 if g < 0.16 else (1 if g < 0.18 else 2)
-		_big_choice(tab_easy, "봉(다리) 간격", ["좁게(어려움)", "보통", "넓게(쉬움)"], cg, func(i): _apply("bridge_gap", gaps[i]), 3)
 		var lays := ["2bar", "3bar", "v", "step"]
 		_big_choice(tab_easy, "다리 모양 (실제 일본 기계 세팅)", ["기본 2봉 다리", "3봉 다리", "ハの字 (벌어지는 다리)", "단차 다리 (뒤가 높음)"], lays.find(String(machine.settings.get("bridge_layout", "2bar"))), func(i): _apply("bridge_layout", lays[i]))
 

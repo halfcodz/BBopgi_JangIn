@@ -3,6 +3,7 @@ extends RefCounted
 ## 에셋(glb 메시 + json 래그돌 정의)으로 실제 물리 상품을 만든다.
 
 const PLUSH_SHADER := preload("res://assets/shaders/plush.gdshader")
+const GOODS_SHADER := preload("res://assets/shaders/goods.gdshader")
 const LAYER_ENV := 1
 const LAYER_PRIZE := 2
 const LAYER_CLAW := 4
@@ -296,6 +297,9 @@ static func _add_keyring(prize: Prize, meta: Dictionary, by_name: Dictionary, s:
 			host_meta = p
 	var top := Vector3.ZERO
 	var best := -INF
+	if meta.has("ring_top"):
+		top = _v(meta["ring_top"]) - _v(host_meta["origin"])
+		best = top.y
 	for sd in host_meta.get("shapes", []):
 		if sd["type"] == "sphere":
 			var c := _v(sd["center"])
@@ -364,6 +368,26 @@ static func _rigid_material(kind: String, colors: Array, item: Dictionary) -> Ma
 	var key := "rigid_%s_%s_%s" % [kind, str(colors), item.get("texture", "")]
 	if _mat_cache.has(key):
 		return _mat_cache[key]
+	if kind.begins_with("goods_"):
+		# 말랑이(폼)·키캡(플라스틱)·팝잇(실리콘): 버텍스 컬러 마스크 + 색 조합
+		var g := ShaderMaterial.new()
+		g.shader = GOODS_SHADER
+		g.set_shader_parameter("main_color", colors[0])
+		g.set_shader_parameter("accent_color", colors[1] if colors.size() > 1 else colors[0])
+		g.set_shader_parameter("accent2_color", colors[2] if colors.size() > 2 else Color(0.2, 0.2, 0.22))
+		match kind:
+			"goods_soft":
+				g.set_shader_parameter("roughness_v", 0.85)
+				g.set_shader_parameter("soft", 0.8)
+				g.set_shader_parameter("speckle", 0.06)
+			"goods_silicone":
+				g.set_shader_parameter("roughness_v", 0.42)
+				g.set_shader_parameter("soft", 0.3)
+			_:
+				g.set_shader_parameter("roughness_v", 0.22)
+				g.set_shader_parameter("clearcoat_v", 0.8)
+		_mat_cache[key] = g
+		return g
 	var m := StandardMaterial3D.new()
 	m.albedo_color = colors[0]
 	match kind:

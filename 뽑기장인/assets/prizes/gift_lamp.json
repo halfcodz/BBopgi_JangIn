@@ -1,0 +1,38 @@
+{
+ "id": "gift_lamp",
+ "fabric": "minky",
+ "height": 0.13,
+ "parts": [
+  {
+   "name": "box",
+   "origin": [
+    0.0,
+    0.065,
+    0.0
+   ],
+   "mass": 0.2,
+   "shapes": [
+    {
+     "type": "box",
+     "center": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "half": [
+      0.05,
+      0.065,
+      0.05
+     ],
+     "rot": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    }
+   ]
+  }
+ ],
+ "joints": [],
+ "material": "printed"
+}
