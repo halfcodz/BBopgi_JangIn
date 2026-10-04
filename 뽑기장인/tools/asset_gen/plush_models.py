@@ -626,3 +626,97 @@ def mochi():
 
 MODELS = {"bear": bear, "bunny": bunny, "penguin": penguin, "dino": dino, "cat": cat,
           "chick": chick, "duck": duck, "mochi": mochi}
+
+
+# ======================================================================== 딱딱한 상품(상자/과자/캡슐)
+def _uv_box(size):
+    """UV 아틀라스 상자: 앞면=왼쪽 절반, 나머지 면=오른쪽 절반."""
+    hx, hy, hz = np.asarray(size) / 2
+    faces = [
+        # (normal, corners(ccw from outside), uv rect)
+        ((0, 0, 1), [(-hx, -hy, hz), (hx, -hy, hz), (hx, hy, hz), (-hx, hy, hz)], (0.0, 0.0, 0.5, 1.0)),
+        ((0, 0, -1), [(hx, -hy, -hz), (-hx, -hy, -hz), (-hx, hy, -hz), (hx, hy, -hz)], (0.5, 0.0, 1.0, 1.0)),
+        ((1, 0, 0), [(hx, -hy, hz), (hx, -hy, -hz), (hx, hy, -hz), (hx, hy, hz)], (0.5, 0.0, 1.0, 1.0)),
+        ((-1, 0, 0), [(-hx, -hy, -hz), (-hx, -hy, hz), (-hx, hy, hz), (-hx, hy, -hz)], (0.5, 0.0, 1.0, 1.0)),
+        ((0, 1, 0), [(-hx, hy, hz), (hx, hy, hz), (hx, hy, -hz), (-hx, hy, -hz)], (0.5, 0.0, 1.0, 0.35)),
+        ((0, -1, 0), [(-hx, -hy, -hz), (hx, -hy, -hz), (hx, -hy, hz), (-hx, -hy, hz)], (0.5, 0.65, 1.0, 1.0)),
+    ]
+    V, N, UV, F = [], [], [], []
+    for nrm, cs, (u0, v0, u1, v1) in faces:
+        b = len(V)
+        uvs = [(u0, 1 - v1), (u1, 1 - v1), (u1, 1 - v0), (u0, 1 - v0)]
+        for c, uv in zip(cs, uvs):
+            V.append(c)
+            N.append(nrm)
+            UV.append(uv)
+        F += [[b, b + 1, b + 2], [b, b + 2, b + 3]]
+    m = trimesh.Trimesh(np.array(V), np.array(F), vertex_normals=np.array(N), process=False)
+    m.visual = trimesh.visual.TextureVisuals(uv=np.array(UV))
+    return m
+
+
+class MeshPart(Part):
+    """SDF 대신 미리 만든 메시를 쓰는 부위."""
+    def __init__(self, name, mesh, origin, mass, shapes):
+        super().__init__(name, None, None, origin, mass, shapes)
+        self.mesh = mesh
+
+
+def figure_box():
+    size = (0.11, 0.16, 0.075)
+    m = _uv_box(size)
+    m.apply_translation([0, size[1] / 2, 0])
+    p = MeshPart("box", m, [0, size[1] / 2, 0], 0.2, [box_shape([0, 0, 0], np.array(size) / 2)])
+    return {"id": "figure_box", "parts": [p], "joints": [], "material": "printed", "height": size[1]}
+
+
+def snack_bag():
+    W, H, T = 0.13, 0.17, 0.045
+
+    def bag(p):
+        q = p - np.array([0, H / 2, 0])
+        # 가운데가 부푼 베개 모양
+        y = np.clip(np.abs(q[:, 1]) / (H / 2), 0, 1)
+        x = np.clip(np.abs(q[:, 0]) / (W / 2), 0, 1)
+        puff = T / 2 * np.sqrt(np.clip(1 - y ** 6, 0, 1)) * np.sqrt(np.clip(1 - x ** 4, 0, 1)) + 0.0015
+        dz = np.abs(q[:, 2]) - puff
+        dx = np.abs(q[:, 0]) - W / 2
+        dy = np.abs(q[:, 1]) - H / 2
+        d = np.maximum(np.maximum(dx, dy), dz)
+        # 위아래 톱니 실링
+        crimp = 0.0007 * np.sin(q[:, 0] * 2 * np.pi / 0.006) * _sm(np.abs(q[:, 1]), H / 2 - 0.015, H / 2 - 0.01)
+        return d + crimp
+
+    mesh, n = mesh_sdf(bag, [-W / 2 - 0.01, -0.01, -T], [W / 2 + 0.01, H + 0.01, T], voxel=0.0012, target_faces=5000, smooth_iters=3)
+    v = np.asarray(mesh.vertices)
+    u = (v[:, 0] / W + 0.5)
+    u = np.where(v[:, 2] >= 0, u, 1 - u)
+    uv = np.stack([u, v[:, 1] / H], -1)
+    m = trimesh.Trimesh(v, mesh.faces, vertex_normals=n, process=False)
+    m.visual = trimesh.visual.TextureVisuals(uv=uv)
+    hull = (np.array(hull_points(bag, [-W / 2 - 0.01, -0.01, -T], [W / 2 + 0.01, H + 0.01, T], voxel=0.004, count=40)) - [0, H / 2, 0]).tolist()
+    p = MeshPart("bag", m, [0, H / 2, 0], 0.06, [{"type": "convex", "points": hull}])
+    return {"id": "snack_bag", "parts": [p], "joints": [], "material": "foil", "height": H}
+
+
+def capsule():
+    r = 0.032
+    s = trimesh.creation.icosphere(subdivisions=4, radius=r)
+    v = np.asarray(s.vertices)
+    vn = v / r
+    cols = np.ones((len(v), 4))
+    bottom = v[:, 1] < 0
+    cols[bottom, 3] = 0.32
+    ring = np.abs(v[:, 1]) < 0.0025
+    cols[ring] = [0.92, 0.92, 0.92, 1.0]
+    m = finalize(trimesh.Trimesh(v + [0, r, 0], s.faces, process=False), vn, cols)
+    # 캡슐 속 작은 장난감
+    inner = trimesh.creation.icosphere(subdivisions=2, radius=r * 0.55)
+    iv = np.asarray(inner.vertices) * [1.0, 0.8, 1.0] + [0, r * 0.75, 0]
+    im = finalize(trimesh.Trimesh(iv, inner.faces, process=False), np.asarray(inner.vertices) / (r * 0.55), np.tile([1, 1, 1], (len(iv), 1)))
+    p = MeshPart("shell", m, [0, r, 0], 0.03, [sph_shape([0, 0, 0], r)])
+    p.accessories = [("toy", im, "tint")]
+    return {"id": "capsule", "parts": [p], "joints": [], "material": "capsule", "height": 2 * r}
+
+
+MODELS.update({"figure_box": figure_box, "snack_bag": snack_bag, "capsule": capsule})

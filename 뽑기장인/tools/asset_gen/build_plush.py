@@ -39,16 +39,19 @@ def build(model_id):
     spec = plush_models.MODELS[model_id]()
     parts = spec["parts"]
 
-    def combined(p):
-        d = parts[0].sdf(p)
-        for pt in parts[1:]:
-            d = np.minimum(d, pt.sdf(p))
-        return d
 
     scene = trimesh.Scene()
     out_parts = []
     tri_total = 0
     for part in parts:
+        if isinstance(part, plush_models.MeshPart):
+            scene.add_geometry(part.mesh, node_name=part.name, geom_name=part.name)
+            tri_total += len(part.mesh.faces)
+            for (aname, amesh, kind) in part.accessories:
+                nm = f"{part.name}__{aname}__{kind}"
+                scene.add_geometry(amesh, node_name=nm, geom_name=nm)
+            out_parts.append({"name": part.name, "origin": part.origin.tolist(), "mass": part.mass, "shapes": part.shapes})
+            continue
         mesh, normals = plush_models.mesh_sdf(part.sdf, part.bounds[0], part.bounds[1],
                                               voxel=part.voxel, target_faces=part.faces)
         v = np.asarray(mesh.vertices)

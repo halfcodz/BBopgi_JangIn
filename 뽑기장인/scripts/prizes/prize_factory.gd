@@ -101,20 +101,26 @@ static func accessory_material(kind: String) -> Material:
 	return m
 
 
-static func _make_shape(sd: Dictionary, s: float) -> Array:
+## 솜 인형은 겉 털과 솜이 눌리므로, 충돌 형상을 보이는 것보다 살짝 작게 잡아
+## 집게 발이 원단 속으로 파고드는 느낌을 낸다.
+static var squish := 0.88
+
+
+static func _make_shape(sd: Dictionary, s: float, soft: bool = true) -> Array:
+	var rs := s * (squish if soft else 1.0)
 	## 반환: [Shape3D, Transform3D(바디 로컬)]
 	match sd["type"]:
 		"sphere":
 			var sp := SphereShape3D.new()
-			sp.radius = sd["radius"] * s
+			sp.radius = sd["radius"] * rs
 			return [sp, Transform3D(Basis(), _v(sd["center"]) * s)]
 		"capsule":
 			var a := _v(sd["a"]) * s
 			var b := _v(sd["b"]) * s
-			var r: float = sd["radius"] * s
+			var r: float = sd["radius"] * rs
 			var cap := CapsuleShape3D.new()
 			cap.radius = r
-			cap.height = a.distance_to(b) + 2.0 * r
+			cap.height = a.distance_to(b) + 2.0 * r + 0.0001
 			var dir := (b - a).normalized()
 			var basis := Basis()
 			if dir.cross(Vector3.UP).length() > 0.001:
@@ -129,7 +135,7 @@ static func _make_shape(sd: Dictionary, s: float) -> Array:
 			return [bx, Transform3D(Basis.from_euler(rot * PI / 180.0), _v(sd["center"]) * s)]
 		"cylinder":
 			var cy := CylinderShape3D.new()
-			cy.radius = sd["radius"] * s
+			cy.radius = sd["radius"] * rs
 			cy.height = sd["height"] * s
 			var rot2 := _v(sd.get("rot", [0, 0, 0]))
 			return [cy, Transform3D(Basis.from_euler(rot2 * PI / 180.0), _v(sd["center"]) * s)]
@@ -137,7 +143,7 @@ static func _make_shape(sd: Dictionary, s: float) -> Array:
 			var cv := ConvexPolygonShape3D.new()
 			var pts := PackedVector3Array()
 			for p in sd["points"]:
-				pts.append(_v(p) * s)
+				pts.append(_v(p) * rs)
 			cv.points = pts
 			return [cv, Transform3D()]
 	return []
@@ -198,7 +204,7 @@ static func create(id: String, rng: RandomNumberGenerator = null, colorway: int 
 		body.continuous_cd = true
 		body.position = _v(p["origin"]) * s
 		for sd in p["shapes"]:
-			var res := _make_shape(sd, s)
+			var res := _make_shape(sd, s, not meta.has("material"))
 			if res.is_empty():
 				continue
 			var cs := CollisionShape3D.new()
@@ -232,7 +238,7 @@ static func create(id: String, rng: RandomNumberGenerator = null, colorway: int 
 					mesh_inst.material_override = fabric_material(fabric, [colors[1], colors[1], colors[2] if colors.size() > 2 else colors[1]])
 				elif kind == "tint":
 					var tm := StandardMaterial3D.new()
-					tm.albedo_color = colors[0]
+					tm.albedo_color = colors[1] if colors.size() > 1 else colors[0]
 					tm.roughness = 0.35
 					mesh_inst.material_override = tm
 				else:
@@ -275,7 +281,83 @@ static func create(id: String, rng: RandomNumberGenerator = null, colorway: int 
 			jt.call("set_flag_" + axis_fn, Generic6DOFJoint3D.FLAG_ENABLE_ANGULAR_SPRING, true)
 			jt.call("set_param_" + axis_fn, Generic6DOFJoint3D.PARAM_ANGULAR_SPRING_STIFFNESS, k)
 			jt.call("set_param_" + axis_fn, Generic6DOFJoint3D.PARAM_ANGULAR_SPRING_DAMPING, k * float(j["damping"]) * 2.0)
+	if item.get("keyring", false):
+		_add_keyring(prize, meta, by_name, s, pm)
 	return prize
+
+
+## 키링 고리: 집게 발끝이 걸리기 좋은 금속 고리를 머리 위에 관절로 단다
+static func _add_keyring(prize: Prize, meta: Dictionary, by_name: Dictionary, s: float, pm: PhysicsMaterial) -> void:
+	var host_name: String = "head" if by_name.has("head") else meta["parts"][0]["name"]
+	var host: RigidBody3D = by_name[host_name]
+	var host_meta: Dictionary = {}
+	for p in meta["parts"]:
+		if p["name"] == host_name:
+			host_meta = p
+	var top := Vector3.ZERO
+	var best := -INF
+	for sd in host_meta.get("shapes", []):
+		if sd["type"] == "sphere":
+			var c := _v(sd["center"])
+			if c.y + float(sd["radius"]) > best:
+				best = c.y + float(sd["radius"])
+				top = Vector3(c.x, best, c.z)
+	var top_world := host.position + top * s
+	var R := 0.013
+	var wire := 0.0018
+	var ring := RigidBody3D.new()
+	ring.name = "keyring"
+	ring.mass = 0.006
+	ring.physics_material_override = pm
+	ring.collision_layer = LAYER_PRIZE
+	ring.collision_mask = LAYER_ENV | LAYER_PRIZE | LAYER_CLAW
+	ring.angular_damp = 0.6
+	ring.position = top_world + Vector3(0, R + 0.007, 0)
+	# 원환을 작은 캡슐 8개로 근사
+	for k in 8:
+		var a0 := TAU * k / 8.0
+		var a1 := TAU * (k + 1) / 8.0
+		var p0 := Vector3(cos(a0), sin(a0), 0) * R
+		var p1 := Vector3(cos(a1), sin(a1), 0) * R
+		var cap := CapsuleShape3D.new()
+		cap.radius = wire * 1.4
+		cap.height = p0.distance_to(p1) + cap.radius * 2.0
+		var cs := CollisionShape3D.new()
+		cs.shape = cap
+		var dir := (p1 - p0).normalized()
+		cs.transform = Transform3D(Basis(Quaternion(Vector3.UP, dir)), (p0 + p1) * 0.5)
+		ring.add_child(cs)
+	var mi := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = R - wire
+	tm.outer_radius = R + wire
+	tm.rings = 32
+	tm.ring_segments = 10
+	mi.mesh = tm
+	mi.rotation.x = PI / 2
+	mi.material_override = accessory_material("metal")
+	ring.add_child(mi)
+	# 연결 고리(작은 체인)
+	var link := MeshInstance3D.new()
+	var lm := TorusMesh.new()
+	lm.inner_radius = 0.0028
+	lm.outer_radius = 0.0045
+	link.mesh = lm
+	link.position = Vector3(0, -R - 0.0035, 0)
+	link.rotation.z = PI / 2
+	link.material_override = accessory_material("metal")
+	ring.add_child(link)
+	prize.add_child(ring)
+	prize.bodies.append(ring)
+	var jt := Generic6DOFJoint3D.new()
+	jt.name = "J_keyring"
+	jt.position = top_world + Vector3(0, 0.002, 0)
+	prize.add_child(jt)
+	jt.node_a = jt.get_path_to(host)
+	jt.node_b = jt.get_path_to(ring)
+	for ax in ["x", "y", "z"]:
+		jt.call("set_param_" + ax, Generic6DOFJoint3D.PARAM_ANGULAR_LOWER_LIMIT, -deg_to_rad(80))
+		jt.call("set_param_" + ax, Generic6DOFJoint3D.PARAM_ANGULAR_UPPER_LIMIT, deg_to_rad(80))
 
 
 static func _rigid_material(kind: String, colors: Array, item: Dictionary) -> Material:
@@ -287,8 +369,8 @@ static func _rigid_material(kind: String, colors: Array, item: Dictionary) -> Ma
 	match kind:
 		"capsule":
 			m.vertex_color_use_as_albedo = true
-			m.albedo_color = Color.WHITE
-			m.roughness = 0.12
+			m.albedo_color = colors[0]
+			m.roughness = 0.1
 			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
 			m.metallic_specular = 0.8
 		"printed":

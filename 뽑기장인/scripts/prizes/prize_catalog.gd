@@ -99,6 +99,29 @@ const ITEMS := {
 			[Color(0.99, 0.82, 0.88), Color(1.0, 0.96, 0.97), Color(0.95, 0.55, 0.66)],
 		],
 	},
+	"figure_box": {
+		"name": "럭키 피규어 박스", "model": "figure_box", "size_class": "big",
+		"scale": 1.0, "mass": 0.2, "cost": 6500, "friction": 0.42, "angular_damp": 0.4,
+		"texture": "res://assets/textures/prizes/figure_box.png",
+		"colorways": [[Color(1, 1, 1)]],
+	},
+	"snack": {
+		"name": "바삭 콘칩", "model": "snack_bag", "size_class": "small",
+		"scale": 0.75, "mass": 0.045, "cost": 800, "friction": 0.5, "angular_damp": 0.6,
+		"texture": "res://assets/textures/prizes/snack_bag.png",
+		"colorways": [[Color(1, 1, 1)]],
+	},
+	"capsule": {
+		"name": "랜덤 캡슐 토이", "model": "capsule", "size_class": "small",
+		"scale": 1.0, "mass": 0.03, "cost": 600, "friction": 0.3, "bounce": 0.25, "angular_damp": 0.3,
+		"colorways": [
+			[Color(0.95, 0.35, 0.42), Color(1.0, 0.85, 0.3)],
+			[Color(0.30, 0.62, 0.96), Color(1.0, 0.6, 0.75)],
+			[Color(0.98, 0.84, 0.28), Color(0.4, 0.8, 0.5)],
+			[Color(0.52, 0.84, 0.50), Color(0.7, 0.5, 0.95)],
+			[Color(0.72, 0.52, 0.95), Color(1.0, 0.95, 0.9)],
+		],
+	},
 }
 
 

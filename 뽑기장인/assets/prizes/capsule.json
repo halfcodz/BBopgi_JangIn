@@ -1,0 +1,29 @@
+{
+ "id": "capsule",
+ "fabric": "minky",
+ "height": 0.064,
+ "parts": [
+  {
+   "name": "shell",
+   "origin": [
+    0.0,
+    0.032,
+    0.0
+   ],
+   "mass": 0.03,
+   "shapes": [
+    {
+     "type": "sphere",
+     "center": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "radius": 0.032
+    }
+   ]
+  }
+ ],
+ "joints": [],
+ "material": "capsule"
+}
