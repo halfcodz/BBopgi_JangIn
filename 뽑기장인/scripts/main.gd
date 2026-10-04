@@ -20,6 +20,12 @@ func _ready() -> void:
 	hud.bind(player, shop)
 	shop.hud = hud
 	Sfx.play_bgm()
+	# 1분마다 자동 저장
+	var t := Timer.new()
+	t.wait_time = 60.0
+	t.autostart = true
+	t.timeout.connect(func(): shop.save_all())
+	add_child(t)
 	await get_tree().create_timer(0.6).timeout
 	Game.say("뽑기장인에 오신 걸 환영해요! 기계 앞에서 E, 도움말은 H")
 

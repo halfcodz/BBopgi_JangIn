@@ -389,6 +389,8 @@ func _toggle_owner() -> void:
 	var on := not owner_panel.visible
 	owner_panel.visible = on
 	Game.set_owner_mode(on)
+	if not on and shop:
+		shop.save_all()
 	if on:
 		owner_panel.open_for(player.machine if player.mode == Player.Mode.MACHINE else player.focus)
 	if player:
