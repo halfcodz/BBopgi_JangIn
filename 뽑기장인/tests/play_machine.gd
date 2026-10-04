@@ -95,7 +95,8 @@ func _initialize() -> void:
 		var hb = tp.bodies[1] if tp.bodies.size() > 1 else tp.bodies[0]
 		target = m.to_local(hb.global_position)
 		if kind == "bridge":
-			target.z += 0.1 * (1 if rng.randf() < 0.5 else -1)
+			target.z += rng.randf_range(-0.16, 0.16)
+			target.x += rng.randf_range(-0.06, 0.06)
 
 		var start_y: float = tp.get_center().y
 		# 캐리지를 목표 위로

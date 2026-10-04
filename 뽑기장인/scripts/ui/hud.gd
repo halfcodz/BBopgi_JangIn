@@ -15,6 +15,7 @@ var mp_state: Label
 var mp_big: Label
 var inspector: Inspector
 var mp_keys: Label
+var mp_key: Label
 var toast_box: VBoxContainer
 var help_panel: PanelContainer
 var pause_panel: PanelContainer
@@ -105,28 +106,56 @@ func _ready() -> void:
 	prompt.size = Vector2(800, 40)
 	root.add_child(prompt)
 
-	# 기계 조작 패널
+	# 기계 조작 패널(오른쪽 아래): 지금 할 일 하나만 크게 보여 준다
 	machine_panel = PanelContainer.new()
-	machine_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	machine_panel.position = Vector2(-490, -290)
-	machine_panel.custom_minimum_size = Vector2(470, 240)
+	machine_panel.anchor_left = 1.0
+	machine_panel.anchor_right = 1.0
+	machine_panel.anchor_top = 1.0
+	machine_panel.anchor_bottom = 1.0
+	machine_panel.offset_left = -440
+	machine_panel.offset_right = -20
+	machine_panel.offset_top = -60
+	machine_panel.offset_bottom = -20
+	machine_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	machine_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	machine_panel.visible = false
+	machine_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(machine_panel)
 	var mv := VBoxContainer.new()
+	mv.add_theme_constant_override("separation", 6)
 	machine_panel.add_child(mv)
 	var mh := HBoxContainer.new()
 	mv.add_child(mh)
-	mp_name = UIKit.title("", 24)
+	mp_name = UIKit.title("", 22)
+	mp_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mh.add_child(mp_name)
-	mp_info = UIKit.label("", 18, UIKit.PINK_DARK)
-	mv.add_child(mp_info)
+	mp_info = UIKit.label("", 16, Color(0.5, 0.4, 0.5))
+	mh.add_child(mp_info)
 	mp_big = UIKit.title("", 30)
 	mv.add_child(mp_big)
-	mp_state = UIKit.label("", 21)
+	# 지금 할 일: 키 모양 + 설명
+	var step := HBoxContainer.new()
+	step.add_theme_constant_override("separation", 10)
+	mv.add_child(step)
+	mp_key = Label.new()
+	mp_key.add_theme_font_size_override("font_size", 26)
+	mp_key.add_theme_color_override("font_color", Color.WHITE)
+	var kb := StyleBoxFlat.new()
+	kb.bg_color = UIKit.PINK_DARK
+	kb.set_corner_radius_all(10)
+	kb.content_margin_left = 12
+	kb.content_margin_right = 12
+	kb.content_margin_top = 2
+	kb.content_margin_bottom = 4
+	mp_key.add_theme_stylebox_override("normal", kb)
+	mp_key.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	step.add_child(mp_key)
+	mp_state = UIKit.label("", 22)
 	mp_state.autowrap_mode = TextServer.AUTOWRAP_WORD
-	mv.add_child(mp_state)
-	mp_keys = UIKit.label("", 15)
-	mp_keys.autowrap_mode = TextServer.AUTOWRAP_WORD
+	mp_state.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mp_state.custom_minimum_size = Vector2(300, 0)
+	step.add_child(mp_state)
+	mp_keys = UIKit.label("", 15, Color(0.5, 0.4, 0.5))
 	mv.add_child(mp_keys)
 
 	# 알림
@@ -209,19 +238,19 @@ func _process(_delta: float) -> void:
 	if player and player.mode == Player.Mode.MACHINE and player.machine:
 		var m: ClawMachine = player.machine
 		mp_name.text = String(m.settings.get("name", "인형뽑기"))
-		mp_info.text = "%s   ·   남은 판 %d" % [m.price_text().replace("\n", " · "), m.credits]
-		var bin_n := m.prizes_in_bin().size()
-		mp_state.text = m.state_text() + ("   🎁 배출구에 %d개! [E] 꺼내기" % bin_n if bin_n > 0 else "")
+		mp_info.text = m.price_text().replace("\n", " · ")
+		var moving := m.state == ClawMachine.State.MOVING
+		var t_txt := "%d" % int(ceil(m.time_left)) if moving else "--"
+		mp_big.text = "CREDIT %d   TIME %s" % [m.credits, t_txt]
+		mp_big.add_theme_color_override("font_color", Color(0.9, 0.15, 0.25) if (moving and m.time_left <= 5.0) else UIKit.PINK_DARK)
+		var g := _guide(m)
+		mp_key.text = g[0]
+		mp_key.visible = g[0] != ""
+		mp_state.text = g[1]
+		var extra := ""
 		if Game.owner_mode:
-			mp_state.text += "   (강집게: %s)" % ("다음 판 ON" if _next_strong(m) else "OFF")
-		var t_txt := "%d초" % int(ceil(m.time_left)) if m.state == ClawMachine.State.MOVING else "--"
-		mp_big.text = "CREDIT %d    TIME %s" % [m.credits, t_txt]
-		mp_big.add_theme_color_override("font_color", Color(0.9, 0.15, 0.25) if (m.state == ClawMachine.State.MOVING and m.time_left <= 5.0) else UIKit.PINK_DARK)
-		var view := "시점: %s  (확대 %+d)" % [Player.VIEW_NAMES[player.view_index], int(player.zoom)]
-		if String(m.settings["control_mode"]) == "2button":
-			mp_keys.text = "[B] 1,000원  [N] 5,000원\n[X 누르는 동안] → 오른쪽   [Space 누르는 동안] ↑ 안쪽 (떼면 하강)\n[C] 시점  [+/-] 확대  [E] 꺼내기  [Q] 나가기   · " + view
-		else:
-			mp_keys.text = "[B] 1,000원  [N] 5,000원\n[WASD/방향키] 조이스틱   [Space] 집게 내리기\n[C] 시점  [+/-] 확대  [마우스] 고개  [E] 꺼내기  [Q] 나가기   · " + view
+			extra = "   · 강집게 %s" % ("다음 판 ON" if _next_strong(m) else "OFF")
+		mp_keys.text = "C 시점(%s) · +/- 확대 · Q 나가기%s" % [Player.VIEW_NAMES[player.view_index], extra]
 	elif player and player.mode == Player.Mode.WALK and player.focus and player.focus.has_method("interact_prompt"):
 		prompt.text = player.focus.interact_prompt()
 	if inspector and inspector.visible:
@@ -245,6 +274,37 @@ func _process(_delta: float) -> void:
 			_toggle_pause()
 
 
+## 지금 해야 할 일 한 가지: [키, 설명]
+func _guide(m: ClawMachine) -> Array:
+	var bin_n := m.prizes_in_bin().size()
+	if bin_n > 0 and m.state != ClawMachine.State.MOVING:
+		return ["E", "🎁 상품 GET! 배출구에서 꺼내기"]
+	var two := String(m.settings["control_mode"]) == "2button"
+	match m.state:
+		ClawMachine.State.IDLE:
+			if m.credits > 0:
+				return ["", "곧 시작해요..."]
+			if Game.cash_total() <= 0:
+				return ["", "돈이 없어요! 지폐교환기·카운터를 확인하세요"]
+			return ["B", "1,000원 넣기  (N = 5,000원)"]
+		ClawMachine.State.MOVING:
+			if m.drop_requested:
+				return ["", "집게가 내려가요!"]
+			if two:
+				if not m.btn1_used:
+					return ["D", "누르는 동안 → 오른쪽으로 (떼면 끝)"]
+				return ["W", "누르는 동안 ↑ 안쪽으로 · 떼면 내려가요"]
+			return ["WASD", "집게 움직이기 → Space 로 내리기"]
+		ClawMachine.State.OPENING, ClawMachine.State.DESCENDING:
+			return ["", "⬇ 내려가는 중..."]
+		ClawMachine.State.GRABBING:
+			return ["", "✊ 집는 중!"]
+		ClawMachine.State.LIFTING, ClawMachine.State.TOP_HOLD:
+			return ["", "⬆ 올라가는 중... 두근두근"]
+		_:
+			return ["", "배출구로 돌아가는 중..."]
+
+
 func _next_strong(m: ClawMachine) -> bool:
 	match String(m.settings["payout_mode"]):
 		"count":
@@ -255,7 +315,17 @@ func _next_strong(m: ClawMachine) -> bool:
 
 
 func show_toast(text: String) -> void:
+	# 같은 알림이 이미 떠 있으면 새로 쌓지 않고 그 알림만 다시 보여 준다
+	for c in toast_box.get_children():
+		if c.has_meta("text") and String(c.get_meta("text")) == text and not c.is_queued_for_deletion():
+			c.modulate.a = 1.0
+			var old_tw = c.get_meta("tween")
+			if old_tw and old_tw.is_valid():
+				old_tw.kill()
+			c.set_meta("tween", _fade_toast(c))
+			return
 	var p := PanelContainer.new()
+	p.set_meta("text", text)
 	var l := UIKit.label(text, 22)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -263,10 +333,15 @@ func show_toast(text: String) -> void:
 	toast_box.add_child(p)
 	if toast_box.get_child_count() > 4:
 		toast_box.get_child(0).queue_free()
+	p.set_meta("tween", _fade_toast(p))
+
+
+func _fade_toast(p: Control) -> Tween:
 	var tw := create_tween()
 	tw.tween_interval(2.8)
 	tw.tween_property(p, "modulate:a", 0.0, 0.6)
 	tw.tween_callback(p.queue_free)
+	return tw
 
 
 # ------------------------------------------------------------------ 도움말
@@ -287,7 +362,7 @@ func _build_help(root: Control) -> void:
   · 인형이 배출구로 떨어지면 E로 꺼내세요.  · Q: 기계에서 나와 걷기
 [큰 기계] 1회 1,000원 · 3발 큰 집게   [작은 기계] 1,000원 2회 · 작은 집게(2발/3발)
 [일본식 피규어 기계] 두 봉 위에 놓인 피규어 상자를 밀고 들어 봉 사이로 떨어뜨리세요(2버튼).
-[2버튼 기계] X를 누르는 동안 오른쪽, Space를 누르는 동안 안쪽 → 떼면 바로 내려갑니다.
+[2버튼 기계] D(→)를 누르는 동안 오른쪽 ①, W(↑)를 누르는 동안 안쪽 ② → 떼면 바로 내려갑니다.
 [나의 전시장] 진열된 인형을 보고 E → 확대 보기(마우스 드래그로 돌리기, 휠/+/-로 확대)
 [지폐교환기] 큰 지폐를 1,000원권으로   [캡슐뽑기] 돈을 넣고 손잡이를 돌려요
 [사장 모드] F1/Tab 또는 카운터에서 E — 난이도·가격·시간을 버튼 하나로, 상품 채우기, 매출 보기

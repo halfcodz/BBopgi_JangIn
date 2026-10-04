@@ -55,16 +55,18 @@ func _ready() -> void:
 	top.add_child(UIKit.button("닫기 (Esc)", close, Color(0.6, 0.55, 0.62)))
 
 	container = SubViewportContainer.new()
-	container.stretch = true
+	# 크기 고정(stretch 끄기): 숨겨진 동안 0×0 크기 뷰포트가 생기지 않게 한다
+	container.stretch = false
 	container.custom_minimum_size = Vector2(1000, 540)
-	container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	container.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	container.mouse_filter = Control.MOUSE_FILTER_STOP
 	container.gui_input.connect(_on_view_input)
 	v.add_child(container)
 	viewport = SubViewport.new()
 	viewport.own_world_3d = true
 	viewport.msaa_3d = Viewport.MSAA_4X
-	viewport.size = Vector2i(1000, 560)
+	viewport.size = Vector2i(1000, 540)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	container.add_child(viewport)
 	_build_studio()
 
@@ -124,6 +126,7 @@ func open_entry(i: int) -> void:
 		Game.say("아직 뽑은 인형이 없어요")
 		return
 	visible = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	opened_frame = Engine.get_process_frames()
 	if hud and hud.player:
 		hud.player.set_ui_open(true)
@@ -132,6 +135,7 @@ func open_entry(i: int) -> void:
 
 func close() -> void:
 	visible = false
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	if model:
 		model.queue_free()
 		model = null

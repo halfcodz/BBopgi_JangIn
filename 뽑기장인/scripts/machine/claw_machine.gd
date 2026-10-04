@@ -39,6 +39,9 @@ var guard_h := 0.12
 var rest_y := 1.56
 var rail_y := 1.8
 var claw_size := 1.0
+var claw_style := "standard"
+var joystick_base: Node3D
+var btn_labels: Array[Label3D] = []
 var bin_y := 0.1
 var open_h := 0.3  ## 배출구 구멍 높이
 var _bin_scan := 0
@@ -449,6 +452,7 @@ func _build_controls() -> void:
 	base_ring.material_override = _mat(Color(0.1, 0.1, 0.12), 0.4)
 	base_ring.position = Vector3(js_x, 0.045, 0)
 	panel_root.add_child(base_ring)
+	joystick_base = base_ring
 	joystick_pivot = Node3D.new()
 	joystick_pivot.position = Vector3(js_x, 0.045, 0)
 	panel_root.add_child(joystick_pivot)
@@ -491,6 +495,21 @@ func _build_controls() -> void:
 	b2mat.emission = Color(0.2, 0.5, 1.0)
 	b2mat.emission_energy_multiplier = 0.4
 	button2_mesh = _make_button(panel_root, Vector3(0.06 if kind != "small" else 0.03, 0.04, 0.02), b2mat, 0.024)
+	# 2버튼 모드용 버튼 표시(① → / ② ↑)
+	for i in 2:
+		var bl3 := Label3D.new()
+		bl3.text = "① →" if i == 0 else "② ↑"
+		bl3.font = load("res://assets/fonts/BlackHanSans-Regular.ttf")
+		bl3.font_size = 40
+		bl3.pixel_size = 0.0011
+		bl3.outline_size = 10
+		bl3.outline_modulate = Color(0.05, 0.05, 0.1)
+		bl3.rotation.x = -PI / 2
+		var bpos: Vector3 = (button2_mesh if i == 0 else button_mesh).position
+		bl3.position = bpos + Vector3(0, 0.015, 0.06)
+		panel_root.add_child(bl3)
+		btn_labels.append(bl3)
+	_refresh_control_look()
 	# LED 표시창(크레딧/시간) – 조작판 위에 비스듬히 세워 플레이 중에 잘 보이게
 	var disp := _mat(Color(0.03, 0.03, 0.04), 0.3)
 	var disp_root := Node3D.new()
@@ -550,6 +569,17 @@ func _build_controls() -> void:
 	acc_root.add_child(bl)
 
 
+## 조작 방식에 맞게 패널 모양을 바꾼다: 2버튼이면 조이스틱을 숨기고 ①/② 표시
+func _refresh_control_look() -> void:
+	var two := String(settings.get("control_mode", "joystick")) == "2button"
+	if joystick_pivot:
+		joystick_pivot.visible = not two
+	if joystick_base:
+		joystick_base.visible = not two
+	for l in btn_labels:
+		l.visible = two
+
+
 func _make_button(parent: Node3D, pos: Vector3, mat: Material, r: float) -> MeshInstance3D:
 	var ring := MeshInstance3D.new()
 	var rm := CylinderMesh.new()
@@ -579,6 +609,7 @@ func _build_claw() -> void:
 	claw = ClawRig.new()
 	claw.name = "Claw"
 	claw.size = claw_size
+	claw.style = claw_style
 	claw.prong_count = int(settings.get("prong_count", 3))
 	claw.open_angle = deg_to_rad(float(settings.get("open_angle", 42)))
 	claw.position = Vector3(_home().x, rest_y, _home().z)
@@ -1132,6 +1163,7 @@ func _on_settings_changed(id: String) -> void:
 	if claw and (claw.prong_count != int(settings["prong_count"]) or abs(rad_to_deg(claw.open_angle) - float(settings["open_angle"])) > 0.5):
 		if state == State.IDLE:
 			_rebuild_claw()
+	_refresh_control_look()
 	_update_labels()
 
 

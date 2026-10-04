@@ -19,7 +19,8 @@ func _setup_dims() -> void:
 	z_front = 0.40
 	chute_x = 0.2   # 앞쪽 배출구 구멍 오른쪽 끝
 	chute_z = 0.0
-	claw_size = 1.05
+	claw_size = 1.0
+	claw_style = "ufo"
 	rest_y = glass_top - 0.34
 	bin_y = 0.12
 	open_h = 0.36
@@ -27,8 +28,9 @@ func _setup_dims() -> void:
 	bar_y = base_h + 0.16
 
 
+## 일본 기계처럼 집게는 왼쪽 앞(배출구 위) 모서리에서 출발한다
 func _home() -> Vector3:
-	return Vector3(ix - 0.12, 0, z_front - 0.12)
+	return Vector3(-ix + 0.12, 0, z_front - 0.12)
 
 
 func _gap() -> float:

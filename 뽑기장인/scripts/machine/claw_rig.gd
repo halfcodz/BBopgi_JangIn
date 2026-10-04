@@ -10,6 +10,8 @@ const LAYER_CLAW := 4
 @export var prong_count := 3
 @export var size := 1.0  ## 1.0 = 큰 기계 집게, 0.62 = 작은 기계 집게
 @export var max_torque := -1.0  ## 100% 힘일 때 발 하나의 최대 토크(N·m). 음수면 크기에 맞춰 자동
+## "standard" = 한국식 금속 집게, "ufo" = 일본 프라이즈 매장(UFO 캐처형)의 투명 돔 헤드 + 긴 2팔 + 고무 손톱
+@export var style := "standard"
 
 var head: AnimatableBody3D
 var prongs: Array[RigidBody3D] = []
@@ -25,6 +27,8 @@ var pivot_radius := 0.036
 var prong_mass := 0.05
 var _metal: StandardMaterial3D
 var _dark: StandardMaterial3D
+var _arm_mat: StandardMaterial3D
+var _rubber_mat: StandardMaterial3D
 
 
 func _ready() -> void:
@@ -40,6 +44,13 @@ func _make_materials() -> void:
 	_dark.albedo_color = Color(0.16, 0.16, 0.18)
 	_dark.metallic = 0.6
 	_dark.roughness = 0.4
+	_arm_mat = StandardMaterial3D.new()
+	_arm_mat.albedo_color = Color(0.9, 0.9, 0.92)
+	_arm_mat.metallic = 0.9
+	_arm_mat.roughness = 0.18
+	_rubber_mat = StandardMaterial3D.new()
+	_rubber_mat.albedo_color = Color(0.95, 0.35, 0.55)
+	_rubber_mat.roughness = 0.85
 
 
 func _build() -> void:
@@ -47,10 +58,17 @@ func _build() -> void:
 	var s := size
 	if max_torque < 0:
 		max_torque = 0.25 * pow(s, 5.5)
+		if style == "ufo":
+			max_torque *= 1.5  # 팔이 길어 같은 토크면 끝 힘이 약하다 → 보정
 	head_radius = 0.042 * s
 	head_height = 0.075 * s
 	pivot_radius = 0.034 * s
 	prong_mass = 0.05 * s
+	if style == "ufo":
+		head_radius = 0.058 * s
+		head_height = 0.07 * s
+		pivot_radius = 0.05 * s
+		prong_mass = 0.06 * s
 
 	head = AnimatableBody3D.new()
 	head.name = "ClawHead"
@@ -84,7 +102,7 @@ func _build() -> void:
 		prong.contact_monitor = true
 		prong.max_contacts_reported = 6
 		var pm := PhysicsMaterial.new()
-		pm.friction = 0.55
+		pm.friction = 0.75 if style == "ufo" else 0.55
 		pm.bounce = 0.0
 		prong.physics_material_override = pm
 		prong.transform = Transform3D(basis, pivot)
@@ -127,6 +145,17 @@ func _build() -> void:
 ## 발 하나의 옆모습(로컬 XY 평면, +X = 바깥, 원점 = 힌지)
 func _prong_profile() -> PackedVector2Array:
 	var s := size
+	if style == "ufo":
+		# 길고 곧은 팔 끝이 안쪽으로 살짝 꺾인 UFO 캐처 팔
+		return PackedVector2Array([
+			Vector2(0.0, 0.004) * s,
+			Vector2(0.008, -0.03) * s,
+			Vector2(0.013, -0.08) * s,
+			Vector2(0.013, -0.14) * s,
+			Vector2(0.006, -0.182) * s,
+			Vector2(-0.006, -0.203) * s,
+			Vector2(-0.016, -0.212) * s,
+		])
 	return PackedVector2Array([
 		Vector2(0.0, 0.004) * s,
 		Vector2(0.004, -0.02) * s,
@@ -140,8 +169,9 @@ func _prong_profile() -> PackedVector2Array:
 
 func _add_prong_shapes(prong: RigidBody3D) -> void:
 	var pts := _prong_profile()
-	var w := 0.016 * size
-	var th := 0.007 * size
+	var ufo := style == "ufo"
+	var w := (0.02 if ufo else 0.016) * size
+	var th := (0.006 if ufo else 0.007) * size
 	for k in pts.size() - 1:
 		var a := Vector3(pts[k].x, pts[k].y, 0)
 		var b := Vector3(pts[k + 1].x, pts[k + 1].y, 0)
@@ -163,8 +193,15 @@ func _add_prong_shapes(prong: RigidBody3D) -> void:
 	# 보이는 메시: 얇은 금속 판을 곡선을 따라 스윕
 	var mi := MeshInstance3D.new()
 	mi.mesh = _sweep_strip(pts, w * 0.85, th * 0.45)
-	mi.material_override = _metal
+	mi.material_override = _arm_mat if ufo else _metal
 	prong.add_child(mi)
+	if ufo:
+		# 팔 끝 고무 손톱(爪 커버): 끝 두 마디를 감싸는 두꺼운 고무
+		var sleeve := MeshInstance3D.new()
+		var tip_pts := PackedVector2Array([pts[pts.size() - 3], pts[pts.size() - 2], pts[pts.size() - 1]])
+		sleeve.mesh = _sweep_strip(tip_pts, w * 1.05, th * 1.5)
+		sleeve.material_override = _rubber_mat
+		prong.add_child(sleeve)
 	var cap := MeshInstance3D.new()
 	var cm := SphereMesh.new()
 	cm.radius = th * 0.85
@@ -236,6 +273,9 @@ func _sweep_strip(pts: PackedVector2Array, width: float, thick: float) -> ArrayM
 
 
 func _add_head_visual(h: Node3D) -> void:
+	if style == "ufo":
+		_add_ufo_head(h)
+		return
 	var s := size
 	var body := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
@@ -276,6 +316,103 @@ func _add_head_visual(h: Node3D) -> void:
 	bottom.position.y = -0.002 * s
 	bottom.material_override = _dark
 	h.add_child(bottom)
+
+
+## 일본 프라이즈 매장의 UFO형 헤드: 흰 받침 + 투명 돔 + LED 링, 안쪽에 솔레노이드
+func _add_ufo_head(h: Node3D) -> void:
+	var s := size
+	var white := StandardMaterial3D.new()
+	white.albedo_color = Color(0.96, 0.96, 0.97)
+	white.roughness = 0.3
+	white.clearcoat_enabled = true
+	var base := MeshInstance3D.new()
+	var bm := CylinderMesh.new()
+	bm.top_radius = head_radius * 0.92
+	bm.bottom_radius = head_radius
+	bm.height = head_height * 0.36
+	bm.radial_segments = 40
+	base.mesh = bm
+	base.position.y = head_height * 0.18
+	base.material_override = white
+	h.add_child(base)
+	# 받침 아래 테두리(팔 힌지가 달린 어두운 링)
+	var skirt := MeshInstance3D.new()
+	var sm := CylinderMesh.new()
+	sm.top_radius = head_radius * 1.02
+	sm.bottom_radius = head_radius * 0.8
+	sm.height = 0.012 * s
+	sm.radial_segments = 40
+	skirt.mesh = sm
+	skirt.position.y = 0.0
+	skirt.material_override = _dark
+	h.add_child(skirt)
+	# LED 링
+	var led := StandardMaterial3D.new()
+	led.albedo_color = Color(0.4, 0.9, 1.0)
+	led.emission_enabled = true
+	led.emission = Color(0.3, 0.85, 1.0)
+	led.emission_energy_multiplier = 2.5
+	var ring := MeshInstance3D.new()
+	var rm := TorusMesh.new()
+	rm.inner_radius = head_radius * 0.9
+	rm.outer_radius = head_radius * 0.98
+	rm.rings = 40
+	ring.mesh = rm
+	ring.position.y = head_height * 0.37
+	ring.material_override = led
+	h.add_child(ring)
+	# 안쪽 솔레노이드(돔 너머로 보임)
+	var core := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = head_radius * 0.38
+	cm.bottom_radius = head_radius * 0.42
+	cm.height = head_height * 0.5
+	core.mesh = cm
+	core.position.y = head_height * 0.55
+	core.material_override = _metal
+	h.add_child(core)
+	var coil := MeshInstance3D.new()
+	var co := CylinderMesh.new()
+	co.top_radius = head_radius * 0.45
+	co.bottom_radius = head_radius * 0.45
+	co.height = head_height * 0.2
+	coil.mesh = co
+	coil.position.y = head_height * 0.5
+	var copper := StandardMaterial3D.new()
+	copper.albedo_color = Color(0.85, 0.45, 0.2)
+	copper.metallic = 1.0
+	copper.roughness = 0.3
+	coil.material_override = copper
+	h.add_child(coil)
+	# 투명 돔
+	var dome := MeshInstance3D.new()
+	var dm := SphereMesh.new()
+	dm.radius = head_radius * 0.93
+	dm.height = head_height * 1.3
+	dm.is_hemisphere = true
+	dm.radial_segments = 40
+	dm.rings = 16
+	dome.mesh = dm
+	dome.position.y = head_height * 0.36
+	var glass := StandardMaterial3D.new()
+	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glass.albedo_color = Color(0.85, 0.95, 1.0, 0.22)
+	glass.roughness = 0.05
+	glass.metallic_specular = 0.9
+	glass.rim_enabled = true
+	glass.rim = 0.6
+	dome.material_override = glass
+	h.add_child(dome)
+	# 줄 고리
+	var hook := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.006 * s
+	tm.outer_radius = 0.011 * s
+	hook.mesh = tm
+	hook.rotation.x = PI / 2
+	hook.position.y = head_height + 0.008 * s
+	hook.material_override = _metal
+	h.add_child(hook)
 
 
 ## 헤드를 옮긴다(물리 프레임에서 호출). top: 줄이 매달린 지점(캐리지)

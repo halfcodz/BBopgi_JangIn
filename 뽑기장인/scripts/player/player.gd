@@ -219,7 +219,10 @@ func _machine_controls(_delta: float) -> void:
 	var x := Input.get_axis("move_left", "move_right")
 	var y := Input.get_axis("move_forward", "move_back")
 	machine.set_input(Vector2(x, y))
-	machine.set_buttons(Input.is_action_pressed("button2"), Input.is_action_pressed("claw_drop"))
+	# 2버튼 기계도 WASD로 조작: D/→ = ①(오른쪽), W/↑ = ②(안쪽, 떼면 하강). X/Space 도 그대로 동작
+	var b1 := Input.is_action_pressed("button2") or Input.is_action_pressed("move_right")
+	var b2 := Input.is_action_pressed("claw_drop") or Input.is_action_pressed("move_forward")
+	machine.set_buttons(b1, b2)
 	if Input.is_action_just_pressed("claw_drop"):
 		machine.press_drop()
 	if Input.is_action_just_pressed("insert_1000"):
@@ -231,7 +234,7 @@ func _machine_controls(_delta: float) -> void:
 	if Input.is_action_just_pressed("interact"):
 		var got: Array = machine.take_prizes_from_bin()
 		if got.is_empty():
-			Game.say("배출구가 비어 있어요")
+			Game.say("배출구가 비어 있어요")  # 같은 알림은 HUD에서 하나로 합쳐진다
 		else:
 			var names := []
 			for g in got:
