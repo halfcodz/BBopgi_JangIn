@@ -1,0 +1,95 @@
+# 아이폰용 앱 파일(.ipa)을 GitHub의 맥 컴퓨터에서 자동으로 만든다.
+# 윈도우만 있어도 됨: 만들어진 .ipa 를 Sideloadly(윈도우)로 내 애플 ID로 서명해 아이폰에 설치한다.
+# 결과: 저장소 Releases 의 "ios-latest" 에 BBopgiJangIn.ipa 가 올라간다(매번 덮어씀).
+name: iOS 앱 만들기
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "뽑기장인/**"
+      - ".github/workflows/ios-build.yml"
+
+concurrency:
+  group: ios-build
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.7"
+  PROJECT_DIR: "뽑기장인"
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Godot 받기
+        run: |
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
+          unzip -q godot.zip
+          echo "GODOT=$PWD/Godot.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
+
+      - name: iOS 내보내기 템플릿 받기
+        run: |
+          curl -sSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q templates.tpz "templates/ios.zip" "templates/version.txt"
+          T="$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$T"
+          mv templates/ios.zip templates/version.txt "$T/"
+          rm templates.tpz
+
+      - name: 리소스 가져오기(import)
+        run: |
+          "$GODOT" --headless --path "$PROJECT_DIR" --import || true
+          "$GODOT" --headless --path "$PROJECT_DIR" --import || true
+
+      - name: Xcode 프로젝트로 내보내기
+        run: |
+          # 서명은 나중에 Sideloadly 가 하므로 형식만 맞는 임시 팀 ID 로 프로젝트만 만든다
+          sed -i '' 's/^application\/app_store_team_id=.*/application\/app_store_team_id="AAAAAAAAAA"/' "$PROJECT_DIR/export_presets.cfg"
+          sed -i '' 's/^application\/export_project_only=.*/application\/export_project_only=true/' "$PROJECT_DIR/export_presets.cfg"
+          mkdir -p build
+          "$GODOT" --headless --path "$PROJECT_DIR" --export-release "iOS" "$PWD/build/BBopgiJangIn.xcodeproj"
+          ls build
+
+      - name: 앱 빌드(서명 없이)
+        run: |
+          xcodebuild -project build/BBopgiJangIn.xcodeproj -target BBopgiJangIn \
+            -configuration Release -sdk iphoneos \
+            SYMROOT="$PWD/build/out" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" CODE_SIGN_ENTITLEMENTS="" \
+            build | tail -n 40
+          ls build/out/Release-iphoneos
+
+      - name: .ipa 묶기
+        run: |
+          mkdir -p Payload
+          cp -R build/out/Release-iphoneos/BBopgiJangIn.app Payload/
+          zip -qry BBopgiJangIn.ipa Payload
+          ls -lh BBopgiJangIn.ipa
+
+      - name: Releases(ios-latest)에 올리기
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-latest
+          name: "아이폰 앱 (최신)"
+          body: |
+            최신 커밋으로 자동으로 만든 아이폰 앱 파일입니다(서명 없음).
+            윈도우에서 Sideloadly 로 내 애플 ID 로 서명해 설치하세요. 자세한 방법은 README 의 '윈도우에서 아이폰에 설치하기'.
+            커밋: ${{ github.sha }}
+          files: BBopgiJangIn.ipa
+          prerelease: true
+          make_latest: false
+
+      - name: 작업 결과로도 보관
+        uses: actions/upload-artifact@v4
+        with:
+          name: BBopgiJangIn-ipa
+          path: BBopgiJangIn.ipa
+          retention-days: 14
