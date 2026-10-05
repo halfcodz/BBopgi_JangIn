@@ -92,6 +92,12 @@ func _build_room() -> void:
 	floor_mat.clearcoat_enabled = true
 	floor_mat.clearcoat = 0.8
 	floor_mat.clearcoat_roughness = 0.05
+	# 멀리 비스듬히 보이는 체크무늬가 지글거리지 않게(이방성 필터)
+	floor_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	if Game.touch:
+		# 휴대폰: 아주 매끈한 반짝임은 작은 화면에서 반짝반짝 떨려 보이므로 조금 부드럽게
+		floor_mat.roughness = 0.3
+		floor_mat.clearcoat_roughness = 0.25
 	var fl := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(RX * 2, RZ * 2)
@@ -354,7 +360,7 @@ func _build_gallery_room() -> void:
 	Build.box(self, Vector3(0.02, 0.02, d - 0.1), Vector3(GX0 + 0.02, RH - 0.06, cz), cove)
 	Build.box(self, Vector3(0.02, 0.02, d - 0.1), Vector3(RX - 0.02, RH - 0.06, cz), cove)
 	# 가운데 원형 러그 + 의자
-	Build.decor(self, "rugRound", Vector3(cx, 0.004, cz + 0.5), 2.6)
+	Build.decor(self, "rugRound", Vector3(cx, 0.008, cz + 0.5), 2.6)
 	Build.decor(self, "stoolBar", Vector3(cx - 0.5, 0, cz + 0.6), 1.4)
 	Build.decor(self, "stoolBar", Vector3(cx + 0.5, 0, cz + 0.6), 1.4)
 	Build.decor(self, "pottedPlant", Vector3(RX - 0.35, 0, -RZ - 0.4), 1.8)
@@ -380,7 +386,7 @@ func _build_decor() -> void:
 	Build.decor(self, "pottedPlant", Vector3(2.0, 0, -RZ + 0.35), 1.8)
 	Build.decor(self, "speaker", Vector3(-RX + 0.3, 2.2, -RZ + 0.3), 1.3, PI / 4)
 	Build.decor(self, "speaker", Vector3(RX - 0.3, 2.2, RZ - 0.3), 1.3, -3 * PI / 4)
-	Build.decor(self, "rugRound", Vector3(-1.4, 0.003, 2.2), 2.4)
+	Build.decor(self, "rugRound", Vector3(-1.4, 0.008, 2.2), 2.4)
 	Build.decor(self, "stoolBar", Vector3(-2.8, 0, 2.0), 1.6)
 
 

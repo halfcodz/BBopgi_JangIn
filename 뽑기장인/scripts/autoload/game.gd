@@ -77,7 +77,7 @@ func _setup_mobile() -> void:
 		Engine.max_physics_steps_per_frame = 4
 	if web:
 		# 휴대폰 웹(사파리): 그래픽 처리 여유가 적으므로 3D 해상도를 더 낮추고, 느려지면 물리를 늦춰 버틴다
-		win.scaling_3d_scale = 0.62
+		win.scaling_3d_scale = 0.85  # 화면 배율을 2배로 묶어 두었으므로(웹 시작 화면) 3D는 거의 제 해상도로
 		Engine.max_physics_steps_per_frame = 3
 	# 웹(휴대폰 사파리): 화면 방향을 잠글 수 없으니 게임을 항상 가로로 돌려 그린다
 	if web or OS.get_environment("BBOPGI_ROTATE") == "1":

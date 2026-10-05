@@ -36,6 +36,11 @@ var _was_on_floor := true
 var _land_dip := 0.0  ## 착지할 때 무릎이 굽혀지는 느낌(머리가 살짝 내려감)
 var _bob := 0.0
 var _phase := 0.0  ## 걸음 위상(끊기지 않게 계속 누적)
+var _head_local := Vector3(0, 1.62, 0)
+## 카메라 부드럽게: 몸은 물리 틱(1/120초)마다 움직이므로, 화면 프레임 사이에서는 두 틱 사이를 이어서 보여 준다
+## (화면 프레임과 물리 틱이 어긋나면 바닥·벽이 덜덜 떨려 보이는 것을 막는다)
+var _ip_prev := Vector3.ZERO
+var _ip_cur := Vector3.ZERO
 const VIEW_NAMES := ["정면", "오른쪽 비스듬히", "왼쪽 비스듬히", "가까이"]
 
 
@@ -56,7 +61,7 @@ func _ready() -> void:
 	add_child(head)
 	camera = Camera3D.new()
 	camera.fov = 70
-	camera.near = 0.03
+	camera.near = 0.05 if Game.touch else 0.03  # 휴대폰 GPU는 깊이 정밀도가 낮아 앞 거리를 조금 늘려 겹친 면 떨림을 막는다
 	camera.current = true
 	camera.far = 80.0
 	# 플레이어(카메라)는 매 프레임 직접 움직이므로 물리 보간에서 제외 – 기계·인형만 보간해 부드럽게
@@ -121,6 +126,7 @@ func _process(delta: float) -> void:
 		if Input.is_action_pressed("zoom_out"):
 			_add_zoom(-40.0 * delta)
 	camera.fov = lerp(camera.fov, _base_fov() - zoom, min(1.0, delta * 12.0))
+	_smooth_head()
 	# 기계 앞 시점: 렌더 프레임마다 부드럽게 따라간다(물리 틱에 묶이면 화면이 떨린다)
 	if mode == Mode.MACHINE and machine and (_cam_tween == null or not _cam_tween.is_running()):
 		var base_xf: Transform3D = _view_cams()[view_index].global_transform
@@ -129,11 +135,28 @@ func _process(delta: float) -> void:
 		camera.global_transform = camera.global_transform.interpolate_with(xf, 1.0 - exp(-delta * 30.0))
 
 
+func _smooth_head() -> void:
+	if mode != Mode.WALK:
+		head.position = _head_local
+		_ip_prev = global_position
+		_ip_cur = global_position
+		return
+	# 순간이동(기계에서 나오기·시작 위치 등)은 이어 붙이지 않고 바로 맞춘다
+	if _ip_cur.distance_to(global_position) > 0.6:
+		_ip_prev = global_position
+		_ip_cur = global_position
+	var f := clampf(Engine.get_physics_interpolation_fraction(), 0.0, 1.0)
+	var ip := _ip_prev.lerp(_ip_cur, f)
+	head.global_position = ip + global_transform.basis * _head_local
+
+
 func _physics_process(delta: float) -> void:
 	match mode:
 		Mode.WALK:
 			_walk(delta)
 			_update_focus()
+			_ip_prev = _ip_cur
+			_ip_cur = global_position
 		Mode.MACHINE:
 			_machine_controls(delta)
 		Mode.UI:
@@ -193,8 +216,8 @@ func _walk(delta: float) -> void:
 		_bob = move_toward(_bob, 0.0, delta * 4.0)
 	# 걸을 때 좌우로 뒤뚱거리지 않게: 아주 작은 위아래 흔들림만
 	var amp: float = lerp(0.006, 0.004, crouch) * _bob
-	head.position.y = eye + sin(_phase * TAU) * amp - _land_dip
-	head.position.x = 0.0
+	_head_local = Vector3(0.0, eye + sin(_phase * TAU) * amp - _land_dip, 0.0)
+	head.position = _head_local
 	head.rotation.z = 0.0
 
 

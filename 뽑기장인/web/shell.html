@@ -2549,6 +2549,12 @@ const CACHE_TAG = JSON.stringify(GODOT_CONFIG.fileSizes || {}); // 배포할 때
 	}
 
 	document.body.classList.add('mobile');
+	// 화면 배율(레티나 3배)을 2배로 묶는다: 3배는 그릴 점이 너무 많아 느려지고, 그 부담을 줄이려고
+	// 3D를 거칠게 그리면 바닥 무늬가 지글거린다 → 2배 + 거의 제 해상도 3D 가 더 깨끗하고 빠르다
+	try {
+		const realDpr = window.devicePixelRatio || 1;
+		Object.defineProperty(window, 'devicePixelRatio', { get: () => Math.min(2, realDpr), configurable: true });
+	} catch (e) {}
 	// 화면을 돌린 직후 사파리가 크기를 늦게 알려 주는 경우가 있어, 조금 뒤에 한 번 더 크기를 맞춘다
 	const refit = () => {
 		[120, 400, 900].forEach((t) => setTimeout(() => window.dispatchEvent(new Event('resize')), t));
