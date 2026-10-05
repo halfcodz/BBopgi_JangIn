@@ -1,0 +1,112 @@
+# 휴대폰 웹앱(사파리에서 바로 플레이) 자동 배포.
+# main 에 push 하면 GitHub 서버가 웹용으로 내보내 GitHub Pages 에 올린다(보통 2~3분).
+# 주소: https://halfcodz.github.io/BBopgi_JangIn/  (PC 로 열면 'QR 코드로 휴대폰에서 열어 주세요' 안내)
+name: 웹앱 배포
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "뽑기장인/**"
+      - ".github/workflows/web-deploy.yml"
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  GODOT_VERSION: "4.7"
+  PROJECT_DIR: "뽑기장인"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Godot 실행 파일·웹 템플릿·가져온 리소스는 캐시해서 두 번째부터 빠르게
+      - name: 캐시(Godot·템플릿)
+        id: tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot-bin
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-web-v1
+
+      - name: 캐시(가져온 리소스)
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PROJECT_DIR }}/.godot
+          key: import-${{ hashFiles('뽑기장인/assets/**', '뽑기장인/project.godot') }}
+          restore-keys: import-
+
+      - name: Godot·웹 템플릿 받기(캐시 없을 때만)
+        if: steps.tools.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot-bin
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d ~/godot-bin
+          T="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$T"
+          # 1.2GB 템플릿 묶음 전체 대신, 필요한 웹 템플릿 파일만 부분 다운로드
+          python3 - "$T" <<'PY'
+          import io, sys, zipfile, urllib.request
+          url = "https://github.com/godotengine/godot/releases/download/4.7-stable/Godot_v4.7-stable_export_templates.tpz"
+          final = urllib.request.urlopen(urllib.request.Request(url, method="HEAD")).geturl()
+          size = int(urllib.request.urlopen(urllib.request.Request(final, method="HEAD")).headers["Content-Length"])
+          class R(io.RawIOBase):
+              def __init__(s): s.pos = 0
+              def seekable(s): return True
+              def readable(s): return True
+              def tell(s): return s.pos
+              def seek(s, o, w=0):
+                  s.pos = o if w == 0 else (s.pos + o if w == 1 else size + o); return s.pos
+              def readinto(s, b):
+                  n = len(b)
+                  if s.pos >= size or n == 0: return 0
+                  end = min(size, s.pos + n) - 1
+                  d = urllib.request.urlopen(urllib.request.Request(final, headers={"Range": f"bytes={s.pos}-{end}"})).read()
+                  b[:len(d)] = d; s.pos += len(d); return len(d)
+          z = zipfile.ZipFile(io.BufferedReader(R(), buffer_size=1 << 20))
+          for want in ["templates/web_nothreads_release.zip", "templates/version.txt"]:
+              with z.open(want) as src, open(sys.argv[1] + "/" + want.split("/")[-1], "wb") as dst:
+                  dst.write(src.read())
+              print("got", want)
+          PY
+          ls -la "$T"
+
+      - name: 리소스 가져오기(import)
+        run: |
+          G=~/godot-bin/Godot_v${GODOT_VERSION}-stable_linux.x86_64
+          echo "GODOT=$G" >> "$GITHUB_ENV"
+          "$G" --headless --path "$PROJECT_DIR" --import || true
+
+      - name: 웹으로 내보내기
+        run: |
+          mkdir -p site
+          "$GODOT" --headless --path "$PROJECT_DIR" --export-release "Web" "$PWD/site/index.html"
+          touch site/.nojekyll
+          ls -la site
+          test -f site/index.pck && test -f site/index.wasm
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

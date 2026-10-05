@@ -28,9 +28,7 @@ func _ready() -> void:
 	if Game.touch:
 		# 휴대폰: 벽·바닥 장식 같은 움직이지 않는 부품을 재질별로 합친다
 		RenderBatcher.merge_static.call_deferred(self, RenderBatcher.referenced_nodes(self))
-	if Game.touch:
-		# 휴대폰: 벽·바닥 장식 같은 움직이지 않는 부품을 재질별로 합친다
-		RenderBatcher.merge_static.call_deferred(self, RenderBatcher.referenced_nodes(self))
+		RenderBatcher.hide_small_labels_far.call_deferred(self, 6.0)
 
 
 # ------------------------------------------------------------------ 환경/조명
@@ -41,7 +39,7 @@ func _build_environment() -> void:
 	e.background_color = Color(0.04, 0.03, 0.06)
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color(0.95, 0.85, 1.0)
-	e.ambient_light_energy = 0.26
+	e.ambient_light_energy = 0.26 if not Game.web else 0.55  # 웹은 천장 조명 15개를 빼는 대신 주변광을 밝게
 	e.tonemap_mode = Environment.TONE_MAPPER_AGX
 	e.tonemap_exposure = 0.95
 	e.ssao_enabled = true
@@ -73,7 +71,7 @@ func _build_environment() -> void:
 		Build.box(self, Vector3(RX * 2 - 0.6, 0.025, 0.035), Vector3(0, RH - 0.03, z), Build.glow(neon_cols[i % 3], 4.0))
 	for x in [-RX + 0.5, RX - 0.5]:
 		Build.box(self, Vector3(0.035, 0.025, RZ * 2 - 0.6), Vector3(x, RH - 0.03, 0), Build.glow(neon_cols[0], 4.0))
-	for x in [-5.0, -2.5, 0.0, 2.5, 5.0]:
+	for x in ([] if Game.web else [-5.0, -2.5, 0.0, 2.5, 5.0]):
 		for z in [-3.2, 0.0, 3.2]:
 			var l := OmniLight3D.new()
 			l.position = Vector3(x, RH - 0.3, z)

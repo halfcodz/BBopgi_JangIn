@@ -130,7 +130,8 @@ func _ready() -> void:
 
 
 # ------------------------------------------------------------------ 휴대폰 그리기 최적화
-const FAR_DIST := 2.6
+## 웹: 쉬고 있는 기계의 인형은 가까이서도 묶음으로 그린다(같은 자리·같은 모양이라 똑같이 보인다)
+var FAR_DIST := 0.0 if Game.web else 2.6
 var _far: Node3D
 var _far_sig := -1
 var _far_t := 0.0
@@ -138,15 +139,21 @@ var _far_t := 0.0
 
 func _batch_static() -> void:
 	RenderBatcher.merge_static(self, RenderBatcher.referenced_nodes(self))
+	RenderBatcher.hide_small_labels_far(self, 5.0)
 
 
 ## 멀리 있는 기계의 인형은 한 덩어리로 구워 그린다. 플레이·진열 중이거나 인형이 움직이면 바로 풀어 진짜 인형을 그린다
 func _update_far(delta: float) -> void:
+	var busy := game_active or player_present or Game.owner_mode
+	# 플레이를 시작하면 바로(같은 프레임) 진짜 인형으로 되돌린다
+	if busy and _far:
+		RenderBatcher.unbake_far(prizes_root, _far)
+		_far = null
+		_far_sig = -1
 	_far_t -= delta
 	if _far_t > 0.0:
 		return
 	_far_t = 1.0
-	var busy := game_active or player_present or Game.owner_mode
 	var n := 0
 	if not busy:
 		for p in prizes_root.get_children():
@@ -482,7 +489,10 @@ func _build_cabinet() -> void:
 	fill.distance_fade_enabled = true
 	fill.distance_fade_begin = 6.0
 	fill.distance_fade_length = 2.0
-	add_child(fill)
+	if Game.web:  # 웹: 조명 수를 줄여 가볍게(보조 조명은 뺀다)
+		fill.free()
+	else:
+		add_child(fill)
 
 	# 플레이어 상호작용용 몸체(기계 전체 덩어리)
 	interact_body = StaticBody3D.new()
@@ -813,7 +823,10 @@ func _build_chute() -> void:
 	bl.distance_fade_enabled = true
 	bl.distance_fade_begin = 5.0
 	bl.distance_fade_length = 1.5
-	add_child(bl)
+	if Game.web:
+		bl.free()
+	else:
+		add_child(bl)
 
 
 func _build_cameras() -> void:

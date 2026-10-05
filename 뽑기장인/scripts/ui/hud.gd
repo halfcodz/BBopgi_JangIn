@@ -531,7 +531,7 @@ func _build_pause(root: Control) -> void:
 		Game.reset_all()
 		get_tree().reload_current_scene(), Color(0.6, 0.6, 0.65)))
 	# 아이폰 앱은 스스로 종료하지 않는다(홈으로 나가면 자동 저장)
-	if not OS.has_feature("ios"):
+	if not OS.has_feature("ios") and not Game.web:
 		v.add_child(UIKit.button("게임 종료", func():
 			if shop:
 				shop.save_all()

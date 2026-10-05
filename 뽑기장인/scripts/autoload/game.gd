@@ -27,16 +27,38 @@ var mouse_sensitivity := 0.0022
 var touch := false
 ## 실제 휴대폰인가(시험용: 환경변수 BBOPGI_PHONE=1 이면 PC에서도 휴대폰처럼)
 var phone := false
+## 웹 브라우저(휴대폰 사파리)에서 도는 중인가(시험용: BBOPGI_WEB=1)
+var web := false
 
 
 func _ready() -> void:
-	phone = OS.has_feature("mobile") or OS.get_environment("BBOPGI_PHONE") == "1"
+	web = OS.has_feature("web") or OS.get_environment("BBOPGI_WEB") == "1"
+	phone = OS.has_feature("mobile") or OS.has_feature("web_ios") or OS.has_feature("web_android") \
+		or OS.get_environment("BBOPGI_PHONE") == "1"
 	touch = phone or OS.has_feature("ios") or OS.has_feature("android") \
 		or OS.get_cmdline_user_args().has("--touch") or OS.get_environment("BBOPGI_TOUCH") == "1"
 	_register_inputs()
+	_setup_font_fallbacks()
 	load_game()
 	if touch:
 		_setup_mobile()
+
+
+## 한글 글꼴에 없는 기호(·, ①, →, 이모지 등)를 대신 그려 줄 글꼴.
+## 웹(사파리)에는 시스템 글꼴 대체가 없어서 이게 없으면 네모(□)로 나온다
+func _setup_font_fallbacks() -> void:
+	var fb: Array[Font] = []
+	for p in ["res://assets/fonts/FallbackSymbols.ttf", "res://assets/fonts/FallbackEmoji.ttf"]:
+		var f = load(p)
+		if f is Font:
+			fb.append(f)
+	for p in ["res://assets/fonts/Jua-Regular.ttf", "res://assets/fonts/BlackHanSans-Regular.ttf", "res://assets/fonts/DoHyeon-Regular.ttf"]:
+		var main = load(p)
+		if main is Font:
+			(main as Font).fallbacks = fb
+	var df := ThemeDB.fallback_font
+	if df:
+		df.fallbacks = fb
 
 
 ## 휴대폰용 화면·성능 설정
@@ -49,6 +71,10 @@ func _setup_mobile() -> void:
 		Engine.max_fps = 60
 		win.scaling_3d_scale = 0.8
 		Engine.max_physics_steps_per_frame = 4
+	if web:
+		# 휴대폰 웹(사파리): 그래픽 처리 여유가 적으므로 3D 해상도를 더 낮추고, 느려지면 물리를 늦춰 버틴다
+		win.scaling_3d_scale = 0.62
+		Engine.max_physics_steps_per_frame = 3
 	# 마우스가 없는 PC에서 시험할 때: 마우스로 터치를 흉내 낸다
 	if not phone and not DisplayServer.is_touchscreen_available():
 		Input.emulate_touch_from_mouse = true

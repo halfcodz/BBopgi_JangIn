@@ -33,6 +33,13 @@
   멀리 있는 기계의 인형은 같은 모양끼리 묶어 한 번에 그림(MultiMesh), 움직이지 않는 부품은 재질별로 합침
 - PC에서 휴대폰 조작 시험: 실행 인자 `-- --touch` 또는 환경변수 `BBOPGI_TOUCH=1` (마우스가 손가락 역할)
 
+## 휴대폰 웹앱으로 바로 하기(설치 없음) – 친구에게 링크만 보내면 끝
+- 주소: **https://halfcodz.github.io/BBopgi_JangIn/** (main 에 push 하면 `.github/workflows/web-deploy.yml` 이 자동으로 새로 올림)
+- 휴대폰 전용: PC로 열면 QR 코드만 보여 줍니다. 아이폰 Safari·안드로이드 Chrome 에서 열고 `▶ 게임 시작`
+- 아이폰은 Safari 공유 버튼 → **홈 화면에 추가** 하면 앱처럼 주소창 없이 꽉 찬 화면으로 실행
+- 세로로 들면 "가로로 돌려 주세요" 안내 · 기록은 그 휴대폰 브라우저에 저장
+- 웹은 그래픽이 가벼운 방식(WebGL 2)이라 앱보다 그림자·조명이 단순하고, 쉬고 있는 기계의 인형은 같은 모양끼리 묶어 그립니다
+
 ## 윈도우에서 아이폰에 설치하기(맥 없이)
 GitHub의 맥 서버가 커밋할 때마다 아이폰 앱 파일(`BBopgiJangIn.ipa`)을 자동으로 만들어
 저장소 Releases 의 **ios-latest** 에 올립니다(`.github/workflows/ios-build.yml`). 이 파일을 윈도우의 **Sideloadly**로 설치합니다.

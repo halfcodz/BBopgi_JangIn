@@ -154,8 +154,9 @@ static func bake_far(root: Node3D, prizes_root: Node, old: Node3D, dist: float) 
 		mmi.visibility_range_begin = dist
 		holder.add_child(mmi)
 	# 겹치는 구간을 조금 두어 경계에서 인형이 비지 않게(같은 자리라 겹쳐 그려도 티가 나지 않는다)
+	# dist 가 0 이면 언제나 묶음만 그린다(진짜 메시는 1cm 너머부터 숨김 = 사실상 숨김)
 	for m3 in srcs:
-		m3.visibility_range_end = dist + 0.8
+		m3.visibility_range_end = (dist + 0.8) if dist > 0.0 else 0.01
 	return holder
 
 
@@ -165,3 +166,11 @@ static func unbake_far(prizes_root: Node, far: Node3D) -> void:
 		far.queue_free()
 	for mi in prizes_root.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).visibility_range_end = 0.0
+
+
+## 작은 글씨(가격표·안내문)는 멀리서는 읽을 수도 없으니 dist 너머에서 그리지 않는다(큰 간판은 그대로)
+static func hide_small_labels_far(root: Node, dist: float) -> void:
+	for l in root.find_children("*", "Label3D", true, false):
+		var lab: Label3D = l
+		if lab.font_size * lab.pixel_size < 0.06 and lab.visibility_range_end == 0.0:
+			lab.visibility_range_end = dist

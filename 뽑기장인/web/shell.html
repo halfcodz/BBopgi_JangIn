@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ko">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+		<meta name="apple-mobile-web-app-title" content="뽑기장인">
+		<meta name="theme-color" content="#140f1a">
+		<link rel="apple-touch-icon" href="index.180x180.png">
+		<title>뽑기장인 – 인형뽑기 연습</title>
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+html, body {
+	width: 100%;
+	height: 100%;
+	background: #140f1a;
+	color: #fff;
+	overflow: hidden;
+	touch-action: none;
+	overscroll-behavior: none;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+	-webkit-tap-highlight-color: transparent;
+	font-family: -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+}
+
+#canvas {
+	display: block;
+	position: fixed;
+	inset: 0;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+.screen {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	gap: 14px;
+	padding: 24px;
+	box-sizing: border-box;
+	background: radial-gradient(circle at 50% 35%, #ff7cc0 0%, #9a4fd6 55%, #2a1740 100%);
+	z-index: 10;
+}
+
+.screen h1 {
+	margin: 0;
+	font-size: 34px;
+	letter-spacing: 2px;
+	text-shadow: 0 3px 0 #6e2a8c;
+}
+
+.screen p {
+	margin: 0;
+	font-size: 16px;
+	line-height: 1.55;
+	opacity: 0.95;
+}
+
+.logo {
+	width: 112px;
+	height: 112px;
+	border-radius: 26px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.start {
+	margin-top: 6px;
+	padding: 16px 44px;
+	font-size: 22px;
+	font-weight: 800;
+	color: #fff;
+	background: #ff4f9a;
+	border: 3px solid #fff;
+	border-radius: 40px;
+	box-shadow: 0 6px 0 #b22a68;
+}
+
+.start:active {
+	transform: translateY(3px);
+	box-shadow: 0 3px 0 #b22a68;
+}
+
+.tip {
+	font-size: 13px !important;
+	opacity: 0.85 !important;
+	max-width: 520px;
+}
+
+#qr {
+	background: #fff;
+	padding: 12px;
+	border-radius: 14px;
+}
+
+#qr img, #qr canvas {
+	display: block;
+}
+
+#url {
+	font-size: 13px;
+	word-break: break-all;
+	opacity: 0.9;
+}
+
+#loading {
+	display: none;
+}
+
+#bar {
+	width: 70%;
+	max-width: 420px;
+	height: 16px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.25);
+	overflow: hidden;
+}
+
+#bar > div {
+	width: 0%;
+	height: 100%;
+	background: #fff;
+	transition: width 0.2s;
+}
+
+#error {
+	display: none;
+	background: rgba(60, 10, 30, 0.85);
+	padding: 14px;
+	border-radius: 12px;
+	font-size: 14px;
+}
+
+/* 세로로 들고 있으면 돌려 달라고 안내(게임은 가로 화면) */
+#rotate {
+	display: none;
+	z-index: 20;
+}
+
+@media (orientation: portrait) {
+	body.mobile #rotate {
+		display: flex;
+	}
+}
+
+.phone {
+	width: 64px;
+	height: 108px;
+	border: 5px solid #fff;
+	border-radius: 14px;
+	animation: turn 1.8s ease-in-out infinite;
+}
+
+@keyframes turn {
+	0%, 25% { transform: rotate(0deg); }
+	60%, 100% { transform: rotate(-90deg); }
+}
+		</style>
+		$GODOT_HEAD_INCLUDE
+	</head>
+	<body>
+		<canvas id="canvas"></canvas>
+
+		<!-- PC·태블릿 키보드 환경: 휴대폰 전용 안내 -->
+		<div id="desktop" class="screen" style="display:none">
+			<img class="logo" src="index.180x180.png" alt="">
+			<h1>뽑기장인</h1>
+			<p>휴대폰 전용 게임이에요 📱<br>휴대폰 카메라로 아래 QR 코드를 찍어 들어와 주세요.</p>
+			<div id="qr"></div>
+			<div id="url"></div>
+		</div>
+
+		<!-- 휴대폰: 시작 화면 -->
+		<div id="intro" class="screen" style="display:none">
+			<img class="logo" src="index.180x180.png" alt="">
+			<h1>뽑기장인</h1>
+			<p>진짜 뽑기방처럼 연습하는 3D 인형뽑기</p>
+			<div id="ready">
+				<button class="start" id="startBtn">▶ 게임 시작</button>
+			</div>
+			<div id="loading">
+				<p id="loadingText">불러오는 중… (처음 한 번은 조금 걸려요)</p>
+				<div id="bar"><div></div></div>
+			</div>
+			<div id="error"></div>
+			<p class="tip" id="tip">소리가 나요 🔊 · 가로 화면으로 즐겨 주세요</p>
+		</div>
+
+		<div id="rotate" class="screen">
+			<div class="phone"></div>
+			<p>휴대폰을 <b>가로</b>로 돌려 주세요</p>
+		</div>
+
+		<script src="$GODOT_URL"></script>
+		<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+
+(function () {
+	const ua = navigator.userAgent;
+	const params = new URLSearchParams(location.search);
+	// iPadOS 는 맥처럼 보이므로 터치 지점 수로 구분
+	const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+	const isMobile = isIOS || /Android|Mobile/i.test(ua) || params.has('mobile');
+	const standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
+	const $ = (id) => document.getElementById(id);
+
+	if (!isMobile) {
+		// 휴대폰 전용: PC 에서는 QR 코드만 보여 준다
+		$('desktop').style.display = 'flex';
+		$('url').textContent = location.href;
+		const s = document.createElement('script');
+		s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+		s.onload = () => {
+			try {
+				const qr = qrcode(0, 'M');
+				qr.addData(location.href.split('?')[0]);
+				qr.make();
+				$('qr').innerHTML = qr.createImgTag(6, 0);
+			} catch (e) {
+				$('qr').style.display = 'none';
+			}
+		};
+		s.onerror = () => { $('qr').style.display = 'none'; };
+		document.head.appendChild(s);
+		return;
+	}
+
+	document.body.classList.add('mobile');
+	$('intro').style.display = 'flex';
+	if (isIOS && !standalone) {
+		$('tip').innerHTML = '소리가 나요 🔊 · 가로 화면으로 즐겨 주세요<br>Safari 공유 버튼 → <b>홈 화면에 추가</b> 하면 앱처럼 꽉 찬 화면으로 할 수 있어요';
+	}
+
+	const engine = new Engine(GODOT_CONFIG);
+
+	function fail(err) {
+		console.error(err);
+		$('loading').style.display = 'none';
+		$('error').style.display = 'block';
+		$('error').textContent = '앗, 게임을 시작하지 못했어요. 새로고침해 주세요.\n(' + (err && err.message ? err.message : err) + ')';
+	}
+
+	const missing = Engine.getMissingFeatures({ threads: GODOT_THREADS_ENABLED });
+	if (missing.length !== 0) {
+		$('ready').style.display = 'none';
+		fail('이 브라우저에서는 실행할 수 없어요: ' + missing.join(', ') + ' (iOS 15 이상 Safari 를 써 주세요)');
+		return;
+	}
+
+	// 저장 공간이 지워지지 않게 요청(되는 브라우저만)
+	if (navigator.storage && navigator.storage.persist) {
+		navigator.storage.persist().catch(() => {});
+	}
+
+	function start() {
+		$('ready').style.display = 'none';
+		$('loading').style.display = 'block';
+		const bar = $('bar').firstElementChild;
+		engine.startGame({
+			onProgress: function (current, total) {
+				if (current > 0 && total > 0) {
+					bar.style.width = Math.min(100, Math.round(current / total * 100)) + '%';
+				}
+			},
+		}).then(() => {
+			$('loadingText').textContent = '거의 다 됐어요!';
+			bar.style.width = '100%';
+			// 첫 화면(가게)이 그려질 시간을 조금 준 뒤 시작 화면을 걷는다
+			setTimeout(() => { $('intro').remove(); }, 600);
+		}, fail);
+	}
+	// 소리는 사용자가 한 번 눌러야 켜진다(iOS 규칙) → 시작 버튼으로 엔진을 켠다
+	$('startBtn').addEventListener('click', start, { once: true });
+	if (params.has('autostart')) {
+		start();
+	}
+	// 화면을 두 번 톡 눌러 확대되는 것·당겨서 새로고침 막기
+	document.addEventListener('gesturestart', (e) => e.preventDefault());
+	document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+}());
+		</script>
+	</body>
+</html>
