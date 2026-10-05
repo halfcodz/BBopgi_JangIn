@@ -50,6 +50,7 @@ var _in_port := -1        # 꺼내는 곳에 있는 음료 번호
 var _port_node: Node3D
 var _aim := -1
 var aim_override := -1   # 테스트용: 바라보는 칸을 직접 지정
+var _tap_ray: Array = []  # 휴대폰: 화면을 톡 누른 방향(있으면 시선 대신 사용)
 
 
 func _ready() -> void:
@@ -369,6 +370,9 @@ func _aimed_slot() -> int:
 	var inv := global_transform.affine_inverse()
 	var o: Vector3 = inv * cam.global_position
 	var d: Vector3 = inv.basis * (-cam.global_basis.z)
+	if _tap_ray.size() == 2:
+		o = inv * (_tap_ray[0] as Vector3)
+		d = inv.basis * (_tap_ray[1] as Vector3)
 	if absf(d.z) < 0.001:
 		return -1
 	var t := (0.27 - o.z) / d.z
@@ -422,6 +426,18 @@ func interact_prompt() -> String:
 	return "[E] %s 사기 (%s)" % [DRINKS[_slots[i]["drink"]][0], Game.won(PRICE)]
 
 
+## 휴대폰: 진열창의 음료를 직접 톡 누르면 그 음료를 산다
+func interact_tap(p, origin: Vector3, dir: Vector3) -> void:
+	_tap_ray = [origin, dir]
+	var slot := _aimed_slot()
+	if slot < 0 and _in_port < 0:
+		_tap_ray = []
+		Game.say("진열창의 음료를 톡 눌러 고르세요")
+		return
+	await interact(p)
+	_tap_ray = []
+
+
 func interact(_player) -> void:
 	if _busy:
 		return
@@ -434,7 +450,7 @@ func interact(_player) -> void:
 		return
 	var i := _aimed_slot()
 	if i < 0:
-		Game.say("진열창의 음료를 바라보고 E를 누르세요")
+		Game.say("진열창의 음료를 바라보고 누르기 버튼을 누르세요" if Game.touch else "진열창의 음료를 바라보고 E를 누르세요")
 		return
 	var s: Dictionary = _slots[i]
 	if s["sold"]:

@@ -68,28 +68,42 @@ func _ready() -> void:
 	ray.collide_with_areas = true
 	camera.add_child(ray)
 	_yaw = rotation.y
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	Game.set_mouse_captured(true)
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if Game.touch:
+		return  # 터치 기기: 둘러보기·확대는 TouchControls 가 직접 처리(손가락에서 흉내 낸 마우스 입력은 무시)
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var s := Game.mouse_sensitivity
-		if mode == Mode.WALK:
-			_yaw -= event.relative.x * s
-			_pitch = clamp(_pitch - event.relative.y * s, -1.35, 1.35)
-			rotation.y = _yaw
-			head.rotation.x = _pitch
-		elif mode == Mode.MACHINE:
-			# 기계 앞에서는 고개만 살짝 돌려 볼 수 있다
-			_look_off.x = clamp(_look_off.x - event.relative.x * s, -0.6, 0.6)
-			_look_off.y = clamp(_look_off.y - event.relative.y * s, -0.45, 0.45)
+		look(event.relative * Game.mouse_sensitivity)
 	elif event is InputEventMouseButton and event.pressed and not ui_open:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_add_zoom(4.0)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_add_zoom(-4.0)
 		elif Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not Game.owner_mode:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			Game.set_mouse_captured(true)
+
+
+## 고개 돌리기(라디안). 마우스·터치 드래그 공용
+func look(d: Vector2) -> void:
+	if ui_open:
+		return
+	if mode == Mode.WALK:
+		_yaw -= d.x
+		_pitch = clamp(_pitch - d.y, -1.35, 1.35)
+		rotation.y = _yaw
+		head.rotation.x = _pitch
+	elif mode == Mode.MACHINE:
+		# 기계 앞에서는 고개만 살짝 돌려 볼 수 있다
+		_look_off.x = clamp(_look_off.x - d.x, -0.6, 0.6)
+		_look_off.y = clamp(_look_off.y - d.y, -0.45, 0.45)
+
+
+## 두 손가락 벌리기/오므리기 확대(도 단위)
+func add_zoom(d: float) -> void:
+	if not ui_open:
+		_add_zoom(d)
 
 
 func _base_fov() -> float:
@@ -309,7 +323,4 @@ func _machine_controls(_delta: float) -> void:
 
 func set_ui_open(v: bool) -> void:
 	ui_open = v
-	if v:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	else:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	Game.set_mouse_captured(not v)

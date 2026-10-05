@@ -20,6 +20,7 @@ var place_label: Label
 var stock_label: Label
 var ledger_label: Label
 var _machines: Array = []
+var remove_mode := false
 
 
 func _ready() -> void:
@@ -368,12 +369,22 @@ func _build_stock_tab() -> void:
 		grid.add_child(b)
 	tab_stock.add_child(HSeparator.new())
 	var tg := CheckButton.new()
-	tg.text = "직접 놓기: 위에서 고른 상품을 기계 안 클릭한 곳에 놓기\n(오른쪽 클릭 = 빼기)"
+	tg.text = "직접 놓기: 위에서 고른 상품을 기계 안 누른 곳에 놓기" if Game.touch else "직접 놓기: 위에서 고른 상품을 기계 안 클릭한 곳에 놓기\n(오른쪽 클릭 = 빼기)"
 	tg.button_pressed = place_mode
 	tg.toggled.connect(func(on):
 		place_mode = on
 		_update_place_label())
 	tab_stock.add_child(tg)
+	if Game.touch:
+		# 휴대폰에는 오른쪽 클릭이 없으므로 '빼기' 를 켜고 누르면 그 상품을 뺀다
+		var rm := CheckButton.new()
+		rm.text = "빼기: 켜고 기계 안 상품을 누르면 빼요"
+		rm.button_pressed = remove_mode
+		rm.toggled.connect(func(on):
+			remove_mode = on
+			if on and not place_mode:
+				tg.button_pressed = true)
+		tab_stock.add_child(rm)
 	place_label = UIKit.label("", 16, UIKit.PINK_DARK)
 	place_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	place_label.custom_minimum_size = Vector2(440, 0)
@@ -399,7 +410,7 @@ func _update_place_label() -> void:
 	elif place_id == "":
 		place_label.text = "먼저 위에서 상품을 하나 누르세요."
 	else:
-		place_label.text = "선택: %s · 기계 안을 클릭하면 놓아요" % PrizeCatalog.display_name(place_id)
+		place_label.text = "선택: %s · 기계 안을 누르면 놓아요" % PrizeCatalog.display_name(place_id)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -413,17 +424,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		var hit := cam.get_world_3d().direct_space_state.intersect_ray(q)
 		if hit.is_empty():
 			return
-		if event.button_index == MOUSE_BUTTON_LEFT and place_id != "":
+		var removing: bool = event.button_index == MOUSE_BUTTON_RIGHT or (remove_mode and event.button_index == MOUSE_BUTTON_LEFT)
+		if not removing and event.button_index == MOUSE_BUTTON_LEFT and place_id != "":
 			var lp := machine.to_local(hit["position"])
 			if abs(lp.x) > machine.ix or lp.z < machine.z_back or lp.z > machine.z_front or lp.y < machine.base_h - 0.05 or lp.y > machine.glass_top:
-				hud.show_toast("기계 안쪽을 클릭하세요")
+				hud.show_toast("기계 안쪽을 누르세요")
 				return
 			lp.y = max(lp.y, machine.base_h) + 0.18
 			machine.add_prize(place_id, machine.to_global(lp), randf() * TAU)
 			Sfx.play("plush_thud", -6.0)
 			_after_stock()
 			get_viewport().set_input_as_handled()
-		elif event.button_index == MOUSE_BUTTON_RIGHT:
+		elif removing:
 			var col = hit["collider"]
 			var p = col.get_parent() if col else null
 			if p is Prize:

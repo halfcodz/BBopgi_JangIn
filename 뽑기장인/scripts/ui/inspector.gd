@@ -41,6 +41,10 @@ func _ready() -> void:
 	panel.offset_right = 520
 	panel.offset_top = -370
 	panel.offset_bottom = 370
+	if Game.touch:
+		# 휴대폰 기준 화면(높이 720)에 들어가게
+		panel.offset_top = -350
+		panel.offset_bottom = 350
 	add_child(panel)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
@@ -52,12 +56,13 @@ func _ready() -> void:
 	top.add_child(title_label)
 	top.add_child(UIKit.button("◀ 이전", func(): show_index(index - 1)))
 	top.add_child(UIKit.button("다음 ▶", func(): show_index(index + 1)))
-	top.add_child(UIKit.button("닫기 (Esc)", close, Color(0.6, 0.55, 0.62)))
+	top.add_child(UIKit.button("닫기" if Game.touch else "닫기 (Esc)", close, Color(0.6, 0.55, 0.62)))
 
 	container = SubViewportContainer.new()
 	# 크기 고정(stretch 끄기): 숨겨진 동안 0×0 크기 뷰포트가 생기지 않게 한다
 	container.stretch = false
-	container.custom_minimum_size = Vector2(1000, 540)
+	var vh := 480 if Game.touch else 540
+	container.custom_minimum_size = Vector2(1000, vh)
 	container.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	container.mouse_filter = Control.MOUSE_FILTER_STOP
 	container.gui_input.connect(_on_view_input)
@@ -65,14 +70,14 @@ func _ready() -> void:
 	viewport = SubViewport.new()
 	viewport.own_world_3d = true
 	viewport.msaa_3d = Viewport.MSAA_4X
-	viewport.size = Vector2i(1000, 540)
+	viewport.size = Vector2i(1000, vh)
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	container.add_child(viewport)
 	_build_studio()
 
 	info_label = UIKit.label("", 19)
 	v.add_child(info_label)
-	v.add_child(UIKit.label("마우스 왼쪽 버튼으로 끌어서 돌리기 · 휠 또는 +/- 로 확대·축소 · ← → 키로 다른 인형 · R 처음 각도", 16, Color(0.45, 0.35, 0.45)))
+	v.add_child(UIKit.label("손가락으로 끌어서 돌리기 · 오른쪽 + / - 버튼으로 확대·축소 · ◀ ▶ 로 다른 인형" if Game.touch else "마우스 왼쪽 버튼으로 끌어서 돌리기 · 휠 또는 +/- 로 확대·축소 · ← → 키로 다른 인형 · R 처음 각도", 16, Color(0.45, 0.35, 0.45)))
 
 
 func _build_studio() -> void:

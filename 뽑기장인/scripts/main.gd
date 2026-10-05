@@ -28,11 +28,12 @@ func _ready() -> void:
 	t.timeout.connect(func(): shop.save_all())
 	add_child(t)
 	await get_tree().create_timer(0.6).timeout
-	Game.say("뽑기장인에 오신 걸 환영해요! 기계 앞에서 E, 도움말은 H")
+	Game.say("왼쪽 아래를 밀어 걷고, 오른쪽을 밀어 둘러봐요. 기계를 톡 누르면 플레이!" if Game.touch else "뽑기장인에 오신 걸 환영해요! 기계 앞에서 E, 도움말은 H")
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+	# 창 닫기 / 아이폰에서 홈으로 나가기·다른 앱으로 전환할 때 저장(백그라운드 앱은 언제든 종료될 수 있다)
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if shop:
 			shop.save_all()
 		Game.save_game()

@@ -23,11 +23,42 @@ var spent_since_last_win := 0
 var bgm_volume := 0.6
 var sfx_volume := 0.9
 var mouse_sensitivity := 0.0022
+## 터치(아이폰·아이패드 등) 조작 모드. PC에서 시험하려면 실행 인자 -- --touch
+var touch := false
+## 실제 휴대폰인가(시험용: 환경변수 BBOPGI_PHONE=1 이면 PC에서도 휴대폰처럼)
+var phone := false
 
 
 func _ready() -> void:
+	phone = OS.has_feature("mobile") or OS.get_environment("BBOPGI_PHONE") == "1"
+	touch = phone or OS.has_feature("ios") or OS.has_feature("android") \
+		or OS.get_cmdline_user_args().has("--touch") or OS.get_environment("BBOPGI_TOUCH") == "1"
 	_register_inputs()
 	load_game()
+	if touch:
+		_setup_mobile()
+
+
+## 휴대폰용 화면·성능 설정
+func _setup_mobile() -> void:
+	var win := get_tree().root
+	# 기준 화면을 1280x720으로 → 휴대폰에서 글씨·버튼이 커진다(가로는 화면 비율에 맞춰 늘어남)
+	win.content_scale_size = Vector2i(1280, 720)
+	if phone:
+		# 열·배터리: 화면은 60fps, 3D는 해상도를 조금 낮춰 그린다(글씨·UI는 원래 해상도)
+		Engine.max_fps = 60
+		win.scaling_3d_scale = 0.8
+		Engine.max_physics_steps_per_frame = 4
+	# 마우스가 없는 PC에서 시험할 때: 마우스로 터치를 흉내 낸다
+	if not phone and not DisplayServer.is_touchscreen_available():
+		Input.emulate_touch_from_mouse = true
+
+
+## 마우스 커서 잡기/풀기(터치 기기에는 마우스가 없으므로 건드리지 않는다)
+func set_mouse_captured(on: bool) -> void:
+	if touch:
+		return
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if on else Input.MOUSE_MODE_VISIBLE
 
 
 # ------------------------------------------------------------------ 입력

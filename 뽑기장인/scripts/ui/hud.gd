@@ -27,6 +27,7 @@ var owner_badge: Label
 var stats_label: Label
 var owner_panel: OwnerPanel
 var _bill_labels := {}
+var touch_controls: TouchControls
 
 
 func _ready() -> void:
@@ -121,6 +122,14 @@ func _ready() -> void:
 	machine_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	machine_panel.visible = false
 	machine_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if Game.touch:
+		# 휴대폰: 오른쪽 아래는 버튼 자리 → 조작 안내는 오른쪽 위(획득 수 아래)
+		machine_panel.anchor_top = 0.0
+		machine_panel.anchor_bottom = 0.0
+		machine_panel.offset_left = -430
+		machine_panel.offset_top = 70
+		machine_panel.offset_bottom = 110
+		machine_panel.grow_vertical = Control.GROW_DIRECTION_END
 	root.add_child(machine_panel)
 	var mv := VBoxContainer.new()
 	mv.add_theme_constant_override("separation", 6)
@@ -172,6 +181,18 @@ func _ready() -> void:
 	bridge_guide.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	bridge_guide.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	bridge_guide.visible = false
+	if Game.touch:
+		bridge_guide.anchor_left = 0.0
+		bridge_guide.anchor_right = 0.0
+		bridge_guide.anchor_top = 0.0
+		bridge_guide.anchor_bottom = 0.0
+		bridge_guide.offset_left = 16
+		bridge_guide.offset_right = 296
+		bridge_guide.offset_top = 150
+		bridge_guide.offset_bottom = 430
+		bridge_guide.grow_horizontal = Control.GROW_DIRECTION_END
+		bridge_guide.grow_vertical = Control.GROW_DIRECTION_END
+		bridge_guide.scale = Vector2(0.86, 0.86)
 	root.add_child(bridge_guide)
 
 	# 알림
@@ -200,7 +221,13 @@ func _ready() -> void:
 	hint.add_theme_constant_override("outline_size", 6)
 	hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	hint.position = Vector2(16, -34)
+	hint.visible = not Game.touch
 	root.add_child(hint)
+
+	if Game.touch:
+		touch_controls = TouchControls.new()
+		touch_controls.hud = self
+		root.add_child(touch_controls)
 
 	Game.wallet_changed.connect(_refresh_wallet)
 	Game.collection_changed.connect(_refresh_stats)
@@ -215,6 +242,8 @@ func bind(p: Player, s: Node) -> void:
 	shop = s
 	owner_panel.player = p
 	owner_panel.shop = s
+	if touch_controls:
+		touch_controls.player = p
 	p.focus_changed.connect(_on_focus)
 	p.mode_changed.connect(_on_mode)
 
@@ -239,9 +268,9 @@ func _on_focus(target) -> void:
 		var extra := ""
 		if not m.prizes_in_bin().is_empty():
 			extra = "  (배출구에 상품 있음!)"
-		prompt.text = "[E] %s 하기 · %s%s" % [m.settings.get("name", "인형뽑기"), m.price_text().replace("\n", " / "), extra]
+		prompt.text = _keys("[E] %s 하기 · %s%s" % [m.settings.get("name", "인형뽑기"), m.price_text().replace("\n", " / "), extra])
 	elif target.has_method("interact_prompt"):
-		prompt.text = target.interact_prompt()
+		prompt.text = _keys(target.interact_prompt())
 
 
 func _on_mode(mode: int) -> void:
@@ -264,15 +293,21 @@ func _process(_delta: float) -> void:
 		mp_big.text = "CREDIT %d   TIME %s" % [m.credits, t_txt]
 		mp_big.add_theme_color_override("font_color", Color(0.9, 0.15, 0.25) if (moving and m.time_left <= 5.0) else UIKit.PINK_DARK)
 		var g := _guide(m)
+		if Game.touch:
+			g = [_touch_key(g[0]), _keys(g[1])]
 		mp_key.text = g[0]
-		mp_key.visible = g[0] != ""
+		mp_key.visible = g[0] != "" and not Game.touch  # 휴대폰은 오른쪽 큰 버튼이 곧 할 일
+
 		mp_state.text = g[1]
 		var extra := ""
 		if Game.owner_mode:
 			extra = "   · 강집게 %s" % ("다음 판 ON" if _next_strong(m) else "OFF")
-		mp_keys.text = "C 시점(%s) · +/- 확대 · Q 나가기%s" % [Player.VIEW_NAMES[player.view_index], extra]
+		if Game.touch:
+			mp_keys.text = "시점: %s · 두 손가락으로 확대%s" % [Player.VIEW_NAMES[player.view_index], extra]
+		else:
+			mp_keys.text = "C 시점(%s) · +/- 확대 · Q 나가기%s" % [Player.VIEW_NAMES[player.view_index], extra]
 	elif player and player.mode == Player.Mode.WALK and player.focus and player.focus.has_method("interact_prompt"):
-		prompt.text = player.focus.interact_prompt()
+		prompt.text = _keys(player.focus.interact_prompt())
 	if inspector and inspector.visible:
 		if Engine.get_process_frames() > inspector.opened_frame + 1 and (Input.is_action_just_pressed("menu") or Input.is_action_just_pressed("interact")):
 			inspector.close()
@@ -292,6 +327,34 @@ func _process(_delta: float) -> void:
 			_toggle_owner()
 		else:
 			_toggle_pause()
+
+
+## 터치 모드에서는 키 이름 대신 버튼 이름으로 안내한다
+func _keys(t: String) -> String:
+	if not Game.touch:
+		return t
+	t = t.replace("[E] ", "").replace("[E]", "")
+	t = t.replace("집게 움직이기 → Space 로 내리기", "왼쪽으로 집게 이동 → 오른쪽 '내리기'")
+	t = t.replace("1,000원 넣기  (N = 5,000원)", "오른쪽 버튼으로 1,000원 넣기")
+	t = t.replace("배출구에서 꺼내기", "오른쪽 '꺼내기'")
+	t = t.replace("누르는 동안 → 오른쪽으로 (떼면 끝)", "① 누르는 동안 오른쪽으로")
+	t = t.replace("누르는 동안 ↑ 안쪽으로 · 떼면 내려가요", "② 누르는 동안 안쪽으로 · 떼면 내려가요")
+	return t
+
+
+func _touch_key(k: String) -> String:
+	match k:
+		"E":
+			return "꺼내기"
+		"B":
+			return "1,000원"
+		"WASD":
+			return "조이스틱"
+		"D":
+			return "①"
+		"W":
+			return "②"
+	return k
 
 
 ## 지금 해야 할 일 한 가지: [키, 설명]
@@ -390,10 +453,22 @@ func _build_help(root: Control) -> void:
 [지폐교환기] 큰 지폐를 1,000원권으로   [캡슐뽑기] 돈을 넣고 손잡이를 돌려요
 [사장 모드] F1/Tab 또는 카운터에서 E — 난이도·가격·시간을 버튼 하나로, 상품 채우기, 매출 보기
 [I] 내 수집함   [H] 이 도움말   [Esc] 메뉴"""
+	if Game.touch:
+		txt = """[걷기] 왼쪽 아래에 손가락을 대고 밀면 이동 (끝까지 밀면 달리기)
+           오른쪽 화면을 밀면 둘러보기 · 두 손가락을 벌리면 확대
+[사용하기] 기계·자판기·교환기를 톡 누르면 바로 사용 (바라보면 오른쪽 아래에 큰 버튼도 떠요)
+[인형뽑기] 오른쪽 큰 버튼 하나만 누르면 돼요: 1,000원 넣기 → (왼쪽으로 집게 이동) → 내리기 → 꺼내기
+  · 시점 버튼으로 옆에서 깊이 확인 · 집게는 줄에 매달려 흔들려요
+  · 와리가리: 큰 기계에서 집게가 흔들리는 박자에 맞춰 좌우로 톡톡 밀어 보세요
+[2버튼·일본식 기계] ① 누르는 동안 오른쪽, ② 누르는 동안 안쪽 → 떼면 내려가요
+[일본식 UFO 기계] 무거운 상자는 통째로 안 들려요. 끝을 살짝 들어 조금씩 밀고, 거의 똑바로 서야 빠져요
+[음료 자판기] 진열창의 음료를 톡 → 1,000원 → 꺼내는 곳을 한 번 더 톡
+[나의 전시실] 가게 안쪽 금색 문 너머. 진열장을 톡 누르면 돌려 보며 구경
+[메뉴] 위 가운데 버튼: 도움말 · 내 수집함 · 사장 모드 · 소리 · 저장"""
 	var l := UIKit.label(txt, 19)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD
 	v.add_child(l)
-	v.add_child(UIKit.button("닫기 (H)", func(): help_panel.visible = false))
+	v.add_child(UIKit.button("닫기" if Game.touch else "닫기 (H)", func(): help_panel.visible = false))
 
 
 # ------------------------------------------------------------------ 일시정지
@@ -409,6 +484,20 @@ func _build_pause(root: Control) -> void:
 	pause_panel.add_child(v)
 	v.add_child(UIKit.title("메뉴"))
 	v.add_child(UIKit.button("계속하기", _toggle_pause))
+	if Game.touch:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		v.add_child(row)
+		row.add_child(UIKit.button("도움말", func():
+			_toggle_pause()
+			help_panel.visible = true))
+		row.add_child(UIKit.button("내 수집함", func():
+			_toggle_pause()
+			_toggle_collection()))
+		row.add_child(UIKit.button("사장 모드", func():
+			_toggle_pause()
+			_toggle_owner()))
 	v.add_child(UIKit.label("배경음악", 18))
 	var bgm := HSlider.new()
 	bgm.min_value = 0
@@ -425,7 +514,7 @@ func _build_pause(root: Control) -> void:
 	sfx.value = Game.sfx_volume
 	sfx.value_changed.connect(func(v2): Game.sfx_volume = v2)
 	v.add_child(sfx)
-	v.add_child(UIKit.label("마우스 감도", 18))
+	v.add_child(UIKit.label("화면 돌리기 감도" if Game.touch else "마우스 감도", 18))
 	var ms := HSlider.new()
 	ms.min_value = 0.0006
 	ms.max_value = 0.006
@@ -441,11 +530,13 @@ func _build_pause(root: Control) -> void:
 	v.add_child(UIKit.button("처음부터 다시(초기화)", func():
 		Game.reset_all()
 		get_tree().reload_current_scene(), Color(0.6, 0.6, 0.65)))
-	v.add_child(UIKit.button("게임 종료", func():
-		if shop:
-			shop.save_all()
-		Game.save_game()
-		get_tree().quit(), Color(0.5, 0.5, 0.55)))
+	# 아이폰 앱은 스스로 종료하지 않는다(홈으로 나가면 자동 저장)
+	if not OS.has_feature("ios"):
+		v.add_child(UIKit.button("게임 종료", func():
+			if shop:
+				shop.save_all()
+			Game.save_game()
+			get_tree().quit(), Color(0.5, 0.5, 0.55)))
 
 
 func _toggle_pause() -> void:
@@ -475,7 +566,7 @@ func _build_collection(root: Control) -> void:
 	collection_grid.columns = 3
 	collection_grid.add_theme_constant_override("h_separation", 24)
 	sc.add_child(collection_grid)
-	v.add_child(UIKit.button("닫기 (I)", _toggle_collection))
+	v.add_child(UIKit.button("닫기" if Game.touch else "닫기 (I)", _toggle_collection))
 
 
 func _toggle_collection() -> void:

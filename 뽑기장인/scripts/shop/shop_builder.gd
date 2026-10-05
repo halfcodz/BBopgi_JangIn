@@ -25,6 +25,12 @@ func _ready() -> void:
 	_build_showcase()
 	_build_counter()
 	_build_decor()
+	if Game.touch:
+		# 휴대폰: 벽·바닥 장식 같은 움직이지 않는 부품을 재질별로 합친다
+		RenderBatcher.merge_static.call_deferred(self, RenderBatcher.referenced_nodes(self))
+	if Game.touch:
+		# 휴대폰: 벽·바닥 장식 같은 움직이지 않는 부품을 재질별로 합친다
+		RenderBatcher.merge_static.call_deferred(self, RenderBatcher.referenced_nodes(self))
 
 
 # ------------------------------------------------------------------ 환경/조명

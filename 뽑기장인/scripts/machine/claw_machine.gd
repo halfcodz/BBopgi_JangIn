@@ -123,6 +123,51 @@ func _ready() -> void:
 	_place_claw_now()
 	_update_labels()
 	call_deferred("_initial_prizes")
+	if Game.touch:
+		# 휴대폰: 움직이지 않는 부품은 재질별로 합쳐 그리기 호출을 줄인다
+		call_deferred("_batch_static")
+		_far_t = 3.0 + randf() * 2.0
+
+
+# ------------------------------------------------------------------ 휴대폰 그리기 최적화
+const FAR_DIST := 2.6
+var _far: Node3D
+var _far_sig := -1
+var _far_t := 0.0
+
+
+func _batch_static() -> void:
+	RenderBatcher.merge_static(self, RenderBatcher.referenced_nodes(self))
+
+
+## 멀리 있는 기계의 인형은 한 덩어리로 구워 그린다. 플레이·진열 중이거나 인형이 움직이면 바로 풀어 진짜 인형을 그린다
+func _update_far(delta: float) -> void:
+	_far_t -= delta
+	if _far_t > 0.0:
+		return
+	_far_t = 1.0
+	var busy := game_active or player_present or Game.owner_mode
+	var n := 0
+	if not busy:
+		for p in prizes_root.get_children():
+			n += 1
+			for b in (p as Prize).bodies:
+				if not b.sleeping:
+					busy = true
+					break
+			if busy:
+				break
+	if busy:
+		if _far:
+			RenderBatcher.unbake_far(prizes_root, _far)
+			_far = null
+			_far_sig = -1
+		return
+	if _far == null or n != _far_sig:
+		if _far:
+			RenderBatcher.unbake_far(prizes_root, _far)
+		_far = RenderBatcher.bake_far(self, prizes_root, null, FAR_DIST)
+		_far_sig = n
 
 
 func _setup_dims() -> void:
@@ -971,7 +1016,7 @@ func _on_bin_body(body: Node3D) -> void:
 			ledger["revenue_since_payout"] = 0
 			Sfx.play_at("plush_thud", p.get_center())
 			Sfx.play("win", -2.0)
-			Game.say("🎉 %s 획득! 배출구에서 꺼내세요 (E)" % p.display_name)
+			Game.say("🎉 %s 획득! 배출구에서 꺼내세요 (%s)" % [p.display_name, "꺼내기 버튼" if Game.touch else "E"])
 			prize_won.emit(p)
 			save_layout()
 
@@ -1415,6 +1460,11 @@ func _update_audio() -> void:
 
 func _process(delta: float) -> void:
 	_bulb_t += delta
+	# 휴대폰: 그림자는 지금 플레이 중인 기계 하나만(그림자 21개는 휴대폰에 너무 무겁다)
+	if Game.touch and interior_light and interior_light.shadow_enabled != player_present:
+		interior_light.shadow_enabled = player_present
+	if Game.touch and prizes_root:
+		_update_far(delta)
 	var step := int(_bulb_t * (8.0 if game_active else 3.0))
 	for i in bulbs.size():
 		var on := (i + step) % 3 != 0

@@ -22,8 +22,22 @@ func _initialize() -> void:
 		["center", Vector3(2.4, 0.05, 3.6), 0.0, -0.12],
 		["bridge", Vector3(-3.6, 0.05, 1.9), PI / 2, -0.12],
 	]
+	# SHOTS=entrance,center 처럼 일부만 / PLAYS=0,19 처럼 플레이 화면 기계 번호
+	var only := OS.get_environment("SHOTS")
+	if only != "":
+		var keep := []
+		for s0 in shots:
+			if only.split(",").has(s0[0]):
+				keep.append(s0)
+		shots = keep
+	var plays := [0, 19, 10]
+	if OS.get_environment("PLAYS") != "":
+		plays = []
+		for t in OS.get_environment("PLAYS").split(","):
+			plays.append(int(t))
 	get_root().disable_3d = true
-	for k in 360:
+	var wait := int(OS.get_environment("WAIT")) if OS.get_environment("WAIT") != "" else 360
+	for k in wait:
 		await physics_frame
 	for s in shots:
 		player.global_position = s[1]
@@ -36,9 +50,10 @@ func _initialize() -> void:
 			await process_frame
 		await RenderingServer.frame_post_draw
 		get_root().get_texture().get_image().save_png("%s_%s.png" % [out, s[0]])
+		printerr("[%s] 그리기 호출 %d, 물체 %d, 정점 %d" % [s[0], RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME), RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME), RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)])
 		get_root().disable_3d = true
 	# 플레이 화면(큰 기계: 4가지 시점) + 피규어 기계
-	for mi in [0, 19, 10]:
+	for mi in plays:
 		var m = main.shop.machines[mi]
 		player.enter_machine(m)
 		for v in 4:

@@ -238,10 +238,14 @@ static func create(id: String, rng: RandomNumberGenerator = null, colorway: int 
 				if kind == "fabric2":
 					mesh_inst.material_override = fabric_material(fabric, [colors[1], colors[1], colors[2] if colors.size() > 2 else colors[1]])
 				elif kind == "tint":
-					var tm := StandardMaterial3D.new()
-					tm.albedo_color = colors[1] if colors.size() > 1 else colors[0]
-					tm.roughness = 0.35
-					mesh_inst.material_override = tm
+					var tc: Color = colors[1] if colors.size() > 1 else colors[0]
+					var tkey := "tint_" + tc.to_html()
+					if not _mat_cache.has(tkey):
+						var tm := StandardMaterial3D.new()
+						tm.albedo_color = tc
+						tm.roughness = 0.35
+						_mat_cache[tkey] = tm
+					mesh_inst.material_override = _mat_cache[tkey]
 				else:
 					mesh_inst.material_override = accessory_material(kind)
 			elif meta.has("material"):
