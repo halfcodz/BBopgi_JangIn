@@ -60,12 +60,17 @@ jobs:
 
       - name: 앱 빌드(서명 없이)
         run: |
+          set -o pipefail
           xcodebuild -project build/BBopgiJangIn.xcodeproj -target BBopgiJangIn \
             -configuration Release -sdk iphoneos \
             SYMROOT="$PWD/build/out" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" CODE_SIGN_ENTITLEMENTS="" \
-            build | tail -n 40
-          ls build/out/Release-iphoneos
+            build > build/xcodebuild.log 2>&1 || (tail -n 80 build/xcodebuild.log; exit 1)
+          tail -n 20 build/xcodebuild.log
+          ls build/out/Release-iphoneos build/out/Release-iphoneos/BBopgiJangIn.app
+          # 실행 파일과 Info.plist 가 꼭 있어야 한다
+          test -f build/out/Release-iphoneos/BBopgiJangIn.app/BBopgiJangIn
+          test -f build/out/Release-iphoneos/BBopgiJangIn.app/Info.plist
 
       - name: .ipa 묶기
         run: |
@@ -84,6 +89,16 @@ jobs:
             윈도우에서 Sideloadly 로 내 애플 ID 로 서명해 설치하세요. 자세한 방법은 README 의 '윈도우에서 아이폰에 설치하기'.
             커밋: ${{ github.sha }}
           files: BBopgiJangIn.ipa
+          prerelease: true
+          make_latest: false
+
+      - name: 빌드 기록 올리기(문제 확인용)
+        if: always()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-build-log
+          name: "아이폰 빌드 기록"
+          files: build/xcodebuild.log
           prerelease: true
           make_latest: false
 
