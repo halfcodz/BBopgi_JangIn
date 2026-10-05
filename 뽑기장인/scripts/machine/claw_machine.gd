@@ -214,7 +214,7 @@ func _cabinet_paint() -> StandardMaterial3D:
 
 
 func _header_tex_path() -> String:
-	return "res://assets/textures/machine/header_%s.png" % ("big" if kind != "small" else "small")
+	return "res://assets/textures/machine/header_neutral.png"  # 테마색으로 물들인다
 
 
 func _panel_tex_path() -> String:
@@ -222,7 +222,40 @@ func _panel_tex_path() -> String:
 
 
 func _use_bulbs() -> bool:
-	return true
+	return false  # 요즘 뽑기방처럼 전구 대신 LED 네온 띠
+
+
+## 네온 띠 색: 캐비닛 색과 어울리는 밝은 보색 계열
+func neon_color() -> Color:
+	var h := fmod(theme_color.h + 0.08, 1.0)
+	return Color.from_hsv(h, 0.55, 1.0)
+
+
+var neon_mat: StandardMaterial3D
+
+
+func _build_neon(hw: float, hd: float, gh: float) -> void:
+	neon_mat = StandardMaterial3D.new()
+	var nc := neon_color()
+	neon_mat.albedo_color = nc
+	neon_mat.emission_enabled = true
+	neon_mat.emission = nc
+	neon_mat.emission_energy_multiplier = 3.0
+	var z := hd + 0.006
+	# 유리 창 둘레(앞 기둥 두 개 + 위·아래)
+	for sx in [-1.0, 1.0]:
+		_box(Vector3(0.012, gh, 0.008), Vector3(sx * (hw - 0.0225), base_h + gh * 0.5, z), neon_mat)
+	_box(Vector3(W - 0.03, 0.012, 0.008), Vector3(0, glass_top - 0.004, z), neon_mat)
+	_box(Vector3(W - 0.03, 0.012, 0.008), Vector3(0, base_h + 0.006, z), neon_mat)
+	# 간판 테두리
+	_box(Vector3(W + 0.01, 0.012, 0.008), Vector3(0, glass_top + header_h - 0.006, hd + 0.01), neon_mat)
+	_box(Vector3(W + 0.01, 0.012, 0.008), Vector3(0, glass_top + 0.008, hd + 0.01), neon_mat)
+	for sx in [-1.0, 1.0]:
+		_box(Vector3(0.012, header_h, 0.008), Vector3(sx * (hw + 0.002), glass_top + header_h * 0.5, hd + 0.01), neon_mat)
+	# 아래 받침 둘레(바닥에 비치는 빛)
+	_box(Vector3(W + 0.03, 0.014, 0.01), Vector3(0, 0.055, hd + 0.016), neon_mat)
+	for sx in [-1.0, 1.0]:
+		_box(Vector3(0.01, 0.014, D + 0.02), Vector3(sx * (hw + 0.016), 0.055, 0), neon_mat)
 
 
 ## 유리 안쪽 뒷면(인쇄 그림판)
@@ -242,7 +275,9 @@ func _build_backdrop(gh: float, white: Material) -> void:
 
 func _build_cabinet() -> void:
 	var paint := _cabinet_paint()
-	var white := _mat(Color(0.96, 0.96, 0.97), 0.3)
+	# 아래 캐비닛 앞판도 파스텔 테마색(사진 속 분홍·보라 기계처럼)
+	var white := _mat(theme_color.lerp(Color(1, 1, 1), 0.55), 0.25)
+	white.clearcoat_enabled = true
 	var chrome := _mat(Color(0.9, 0.9, 0.92), 0.15, 1.0)
 	var dark := _mat(Color(0.08, 0.08, 0.1), 0.6)
 	var inner_dark := _mat(Color(0.12, 0.1, 0.16), 0.8)
@@ -320,9 +355,13 @@ func _build_cabinet() -> void:
 	# 위 간판(헤더)
 	var header_mat := StandardMaterial3D.new()
 	header_mat.albedo_texture = load(_header_tex_path())
+	if _header_tex_path().ends_with("header_neutral.png"):
+		header_mat.albedo_color = theme_color.lerp(Color(1, 1, 1), 0.15)
 	header_mat.emission_enabled = true
 	header_mat.emission_texture = header_mat.albedo_texture
 	header_mat.emission_energy_multiplier = 0.6
+	header_mat.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
+	header_mat.emission = header_mat.albedo_color
 	_box(Vector3(W, header_h, D), Vector3(0, glass_top + header_h * 0.5, 0), paint)
 	var hq := MeshInstance3D.new()
 	var hqm := QuadMesh.new()
@@ -363,6 +402,8 @@ func _build_cabinet() -> void:
 			b.material_override = bulb_on
 			add_child(b)
 			bulbs.append(b)
+
+	_build_neon(hw, hd, gh)
 
 	# 내부 조명 (LED 바 + 스포트라이트)
 	var led := _mat(Color(1, 1, 1), 0.2)
@@ -1276,6 +1317,9 @@ func _process(delta: float) -> void:
 		var blink := state == State.MOVING and int(_bulb_t * 4.0) % 2 == 0
 		button_mat.emission_energy_multiplier = 2.5 if blink else 0.5
 	bill_led.emission_energy_multiplier = 2.0 if int(_bulb_t * 2.0) % 2 == 0 else 0.6
+	if neon_mat:
+		# 게임 중에는 네온이 숨 쉬듯 밝아졌다 어두워진다
+		neon_mat.emission_energy_multiplier = (3.0 + 1.6 * sin(_bulb_t * 5.0)) if game_active else 2.6
 	_update_labels()
 
 

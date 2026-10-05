@@ -209,5 +209,89 @@ if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "goods":
     jp_figure("jp_figure_d", (200, 245, 210), (60, 160, 100), "아기용 루루", "날개 Ver.", _dragon)
 
 
-if __name__ == "__main__" and not (len(sys.argv) > 1 and sys.argv[1] == "goods"):
+if __name__ == "__main__" and not (len(sys.argv) > 1 and sys.argv[1] in ("goods", "interior", "header")):
     _main_basic()
+
+
+# ------------------------------------------------------------------ 네온 뽑기방 인테리어
+def floor_bw():
+    """광택 흑백 체크 바닥(타일 2×2 = 1.2m)."""
+    N = 1024
+    img = Image.new("RGB", (N, N))
+    d = ImageDraw.Draw(img)
+    h = N // 2
+    for i in range(2):
+        for j in range(2):
+            col = (236, 236, 240) if (i + j) % 2 == 0 else (24, 22, 28)
+            d.rectangle([i * h, j * h, i * h + h, j * h + h], fill=col)
+    # 은은한 대리석 결
+    arr = np.asarray(img).astype(np.float32)
+    yy, xx = np.mgrid[0:N, 0:N]
+    vein = np.sin((xx * 0.012 + yy * 0.007) + 3.0 * np.sin(yy * 0.004 + xx * 0.002)) * 0.5 + 0.5
+    vein = np.clip((vein - 0.93) / 0.07, 0, 1)
+    arr += vein[..., None] * np.where(arr > 128, -18, 22)
+    arr += rng.normal(0, 2.0, arr.shape)
+    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    d = ImageDraw.Draw(img)
+    for k in range(3):
+        d.line([(k * h, 0), (k * h, N)], fill=(120, 120, 130), width=3)
+        d.line([(0, k * h), (N, k * h)], fill=(120, 120, 130), width=3)
+    save(img, "shop/floor_bw.png")
+
+
+def wall_neon():
+    """연보라 벽 패널 + 얇은 세로 줄눈."""
+    W, H = 1024, 512
+    img = Image.new("RGB", (W, H), (226, 206, 236))
+    d = ImageDraw.Draw(img)
+    for x in range(0, W, 128):
+        d.rectangle([x, 0, x + 3, H], fill=(205, 182, 220))
+    arr = np.asarray(img).astype(np.float32)
+    yy = np.linspace(0, 1, H)[:, None, None]
+    arr *= (0.92 + 0.08 * yy)
+    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    save(img, "shop/wall_neon.png")
+
+
+def ceiling_dark():
+    N = 512
+    img = Image.new("RGB", (N, N), (34, 28, 44))
+    d = ImageDraw.Draw(img)
+    d.rectangle([0, 0, N, 4], fill=(48, 40, 60))
+    d.rectangle([0, 0, 4, N], fill=(48, 40, 60))
+    save(img, "shop/ceiling_dark.png")
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "interior":
+    floor_bw()
+    wall_neon()
+    ceiling_dark()
+
+
+def header_neutral():
+    """테마색으로 물들이는 흰 간판: 가장자리 그라데이션 + 발바닥·별·하트 무늬."""
+    W, H = 1024, 256
+    img = Image.new("RGB", (W, H), (255, 255, 255))
+    arr = np.asarray(img).astype(np.float32)
+    yy = np.linspace(-1, 1, H)[:, None, None]
+    arr *= (1.0 - 0.22 * yy ** 2)
+    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    d = ImageDraw.Draw(img)
+    def paw(cx, cy, s, col):
+        d.ellipse([cx - s, cy - s * 0.6, cx + s, cy + s * 0.9], fill=col)
+        for k, (dx, dy) in enumerate(((-1.1, -1.2), (-0.4, -1.6), (0.4, -1.6), (1.1, -1.2))):
+            d.ellipse([cx + dx * s - s * 0.35, cy + dy * s - s * 0.4, cx + dx * s + s * 0.35, cy + dy * s + s * 0.4], fill=col)
+    for i in range(14):
+        x = 40 + i * 72
+        col = (235, 225, 240)
+        if i % 3 == 0:
+            paw(x, 200 if i % 2 else 60, 12, col)
+        elif i % 3 == 1:
+            star(d, x, 205 if i % 2 else 52, 14, col)
+        else:
+            heart(d, x, 200 if i % 2 else 58, 26, col)
+    save(img, "machine/header_neutral.png")
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "header":
+    header_neutral()

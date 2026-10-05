@@ -52,22 +52,8 @@ func _panel_tex_path() -> String:
 	return "res://assets/textures/machine/panel_ufo.png"
 
 
-func _use_bulbs() -> bool:
-	return false
-
-
 func _build_cabinet() -> void:
 	super._build_cabinet()
-	# 기둥·간판 아래 테마색 LED 줄(사진 속 파란 조명 띠)
-	var led := _mat(theme_color, 0.3)
-	led.emission_enabled = true
-	led.emission = theme_color
-	led.emission_energy_multiplier = 2.5
-	var hd := D * 0.5
-	_box(Vector3(W, 0.012, 0.012), Vector3(0, glass_top + 0.006, hd + 0.006), led)
-	_box(Vector3(W, 0.012, 0.012), Vector3(0, base_h - 0.02, hd + 0.006), led)
-	for sx in [-1.0, 1.0]:
-		_box(Vector3(0.008, glass_top - base_h, 0.008), Vector3(sx * (W * 0.5 - 0.005), (glass_top + base_h) * 0.5, hd + 0.004), led)
 	# 천장 안쪽 밝은 LED 패널(흰 실내)
 	var panel := _mat(Color(1, 1, 1), 0.2)
 	panel.emission_enabled = true
