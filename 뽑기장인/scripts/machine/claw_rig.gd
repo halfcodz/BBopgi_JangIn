@@ -667,6 +667,17 @@ func head_blocked(depth: float = 0.006) -> bool:
 	return not hits.is_empty()
 
 
+## 헤드 바로 아래 받치고 있는 것들(인형/바닥)
+func under_head(depth: float = 0.012) -> Array:
+	head_blocked(depth)
+	_probe_shape.height = depth
+	_probe_params.transform = head.global_transform * Transform3D(Basis(), Vector3(0, -depth * 0.5 - 0.001, 0))
+	var out: Array = []
+	for hit in get_world_3d().direct_space_state.intersect_shape(_probe_params, 6):
+		out.append(hit["collider"])
+	return out
+
+
 func tip_positions() -> Array[Vector3]:
 	var pts := _prong_profile()
 	var tip := Vector3(pts[pts.size() - 1].x, pts[pts.size() - 1].y, 0)

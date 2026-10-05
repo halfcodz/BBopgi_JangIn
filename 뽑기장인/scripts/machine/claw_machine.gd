@@ -1140,8 +1140,14 @@ func _physics_process(delta: float) -> void:
 			if touch_frames >= (3 if float(settings["drop_speed"]) < 0.25 else 1):
 				# 줄이 느슨해지면서 1cm 정도 더 내려앉은 뒤 멈춘다
 				if sink_left < 0.0:
-					sink_left = (0.003 if claw_style == "ufo" else 0.01) * claw_size
-				sink_left -= float(settings["drop_speed"]) * delta
+					sink_left = (0.003 if claw_style == "ufo" else (0.032 if kind == "big" else 0.012)) * claw_size
+				if claw_style != "ufo" and kind == "big" and _soft_below():
+					# 줄이 느슨해진 집게가 자기 무게로 인형 사이를 비집고 천천히 파고든다(발이 인형 틈으로 깊게 들어감)
+					claw.press_touching(3.4)
+					head_y += float(settings["drop_speed"]) * delta * 0.55  # 파고드는 동안은 더 천천히
+					sink_left -= float(settings["drop_speed"]) * delta * 0.45
+				else:
+					sink_left -= float(settings["drop_speed"]) * delta
 				if sink_left <= 0.0:
 					done = true
 			if done:
@@ -1237,6 +1243,20 @@ func _check_slip() -> void:
 			return
 
 
+## 집게 아래가 말랑한 인형 더미인가(바닥·딱딱한 상자 위에서는 더 파고들 수 없다)
+func _soft_below() -> bool:
+	if _prong_on_floor():
+		return false
+	for c in claw.under_head(0.012):
+		if not (c is RigidBody3D):
+			return false
+		var pz = (c as Node).get_parent()
+		# 여러 부위로 된 봉제 인형만 말랑하다(상자·과자 같은 한 덩어리 상품은 딱딱함)
+		if not (pz is Prize) or (pz as Prize).bodies.size() < 2:
+			return false
+	return true
+
+
 ## 발끝이 바닥(상품 받침)에 닿았는지 – 옆 유리벽에 스치는 것은 무시
 func _prong_on_floor() -> bool:
 	for tip in claw.tip_positions():
@@ -1248,6 +1268,8 @@ func _prong_on_floor() -> bool:
 func _move_carriage(want: Vector3, speed: float, delta: float) -> void:
 	var target := want * speed
 	var acc := maxf(1.4, speed * 5.0)  # 빠른 레일은 가속도 더 크게(실제 모터처럼 금방 최고 속도)
+	if drop_requested and can_warigari():
+		acc = 8.0  # 하강 버튼: 모터가 바로 멈춘다(집게는 관성으로 계속 흔들림)
 	var dv := target - carriage_vel
 	var maxdv := acc * delta
 	if dv.length() > maxdv:
@@ -1266,16 +1288,103 @@ func _move_carriage(want: Vector3, speed: float, delta: float) -> void:
 	carriage.z = cz
 
 
+## 와리가리(줄 흔들기)가 되는 기계인가: 큰 인형 기계만. 작은 기계는 줄이 짧고 뻣뻣해 거의 안 흔들린다.
+func can_warigari() -> bool:
+	return kind == "big" and claw_style != "ufo" and bool(settings.get("warigari", true))
+
+
+const CLAW_MASS := 0.35       # 큰 집게 무게(kg) – 흔들리다 인형에 부딪힐 때 밀어내는 힘
+var _prev_L := -1.0
+var _knock_cd := 0.0
+
+
+## 집게 = 캐리지에 줄로 매달린 진자(길이가 바뀌는 진자).
+## θ'' = -(g/L)·sinθ - (a/L)·cosθ - 2(L'/L)·θ' - c·θ'
+##  a: 캐리지 가속도(레일을 좌우로 박자 맞춰 흔들면 공진으로 점점 커진다 = 와리가리)
+##  L': 줄이 풀리는 속도(내려가면서 각도는 줄고, 흔들리는 폭(cm)은 오히려 조금 커진다)
 func _update_sway(delta: float) -> void:
 	var L: float = max(rail_y - 0.06 - (head_y + claw.head_height), 0.05)
+	if _prev_L < 0.0:
+		_prev_L = L
+	var Ld := (L - _prev_L) / maxf(delta, 0.0001)
+	_prev_L = L
 	var a: Vector3 = (carriage_vel - prev_carriage_vel) / maxf(delta, 0.0001)
 	var k := float(settings.get("sway", 0.5))
 	var g := 9.81
-	var acc := Vector2(-a.x, -a.z) / L * k
-	var damp := maxf(1.6 - k * 0.9, 0.12)  # 흔들림을 아주 크게 해도 감쇠가 0 아래로 가지 않게
-	sway_v += (acc - (g / L) * sway - damp * sway_v) * delta
+	var wari := can_warigari()
+	var drive: float
+	var damp: float
+	var lim: float
+	if wari:
+		# 실제 줄처럼 잘 안 멈춘다(몇 번이고 왔다 갔다) – 흔들림 설정이 클수록 더 오래 흔들린다
+		drive = clampf(0.6 + k * 0.5, 0.3, 1.6)
+		damp = lerpf(0.42, 0.1, clampf(k / 2.0, 0.0, 1.0))
+		lim = 0.42
+	else:
+		# 작은 기계/일본식: 짧고 뻣뻣한 줄 → 살짝 흔들리다 금방 멈추고 공진도 안 된다
+		drive = k * (0.35 if kind == "small" else 1.0)
+		damp = maxf(1.6 - k * 0.9, 0.12) if kind != "small" else maxf(2.4 - k * 0.6, 1.4)
+		lim = 0.5 if kind != "small" else 0.12
+	var acc := Vector2(-a.x, -a.z) / L * drive
+	var cs := Vector2(cos(sway.x), cos(sway.y))
+	var restore := Vector2(sin(sway.x), sin(sway.y)) * (g / L)
+	var stretch := sway_v * (2.0 * Ld / L)
+	sway_v += (acc * cs - restore - stretch - damp * sway_v) * delta
+	# 인형 더미에 닿으면 흔들리던 힘이 인형으로 넘어가며 금방 멈춘다(닿은 채로 기울어진 자세는 유지)
+	if wari and state != State.MOVING and state != State.IDLE:
+		_contact_absorb(L, delta)
 	sway += sway_v * delta
-	sway = sway.limit_length(0.5)
+	if sway.length() > lim:
+		sway = sway.limit_length(lim)
+		sway_v *= 0.5
+	_keep_inside_glass(L)
+	_knock_cd = maxf(_knock_cd - delta, 0.0)
+
+
+## 흔들리는 집게가 인형에 닿았을 때: 집게의 운동량만큼 인형을 밀고, 집게 흔들림은 줄어든다
+func _contact_absorb(L: float, delta: float) -> void:
+	var touched := {}
+	for p in claw.prongs:
+		for b in p.get_colliding_bodies():
+			if b is RigidBody3D:
+				touched[b] = true
+	var blocked := claw.head_blocked(0.01)
+	if touched.is_empty() and not blocked:
+		return
+	var keep := exp(-14.0 * delta)
+	var dv := sway_v * (1.0 - keep) * L   # 이번 틱에 줄어든 집게 속도(m/s)
+	sway_v *= keep
+	if touched.is_empty():
+		return
+	var j := Vector3(dv.x, 0, dv.y) * CLAW_MASS / touched.size()
+	j = global_transform.basis * j
+	for b in touched:
+		var rb: RigidBody3D = b
+		rb.sleeping = false
+		rb.apply_central_impulse(j)
+
+
+## 크게 흔들리면 집게가 유리벽에 '툭' 부딪혀 튕긴다(벽을 뚫고 나가지 않음)
+func _keep_inside_glass(L: float) -> void:
+	var r := claw.head_radius + 0.035 * claw_size
+	var px := carriage.x + sin(sway.x) * L
+	var pz := carriage.z + sin(sway.y) * L
+	var hit := false
+	if px < -ix + r or px > ix - r:
+		var tx := clampf(px, -ix + r, ix - r)
+		sway.x = asin(clampf((tx - carriage.x) / L, -0.99, 0.99))
+		if sway_v.x * signf(px - tx) > 0.0:
+			hit = absf(sway_v.x) * L > 0.08
+			sway_v.x *= -0.35
+	if pz < z_back + r or pz > z_front - r:
+		var tz := clampf(pz, z_back + r, z_front - r)
+		sway.y = asin(clampf((tz - carriage.z) / L, -0.99, 0.99))
+		if sway_v.y * signf(pz - tz) > 0.0:
+			hit = hit or absf(sway_v.y) * L > 0.08
+			sway_v.y *= -0.35
+	if hit and _knock_cd <= 0.0:
+		_knock_cd = 0.25
+		Sfx.play_at("plush_thud", claw.head.global_position, -10.0, 1.9)
 
 
 func _place_claw_now() -> void:

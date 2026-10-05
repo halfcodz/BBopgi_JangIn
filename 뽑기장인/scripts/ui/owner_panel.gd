@@ -317,6 +317,8 @@ func _build_machine_tab() -> void:
 	_slider(tab_machine, "상승 속도", "lift_speed", 0.04, 1.0, 0.01, "%.2f m/s")
 	_slider(tab_machine, "줄 흔들림", "sway", 0.0, 2.0, 0.05, "%.2f", "높을수록 멈출 때 집게가 많이 흔들려요(1 이상은 아주 출렁)")
 	_slider(tab_machine, "하강 깊이 한계", "drop_depth", 30, 100, 1, "%d%%", "100% = 바닥까지 내려감")
+	if machine.kind == "big" and not machine is BridgeMachine:
+		_check(tab_machine, "와리가리 허용 (줄을 흔들어 뽑기)", "warigari")
 
 
 # ------------------------------------------------------------------ 상품 진열

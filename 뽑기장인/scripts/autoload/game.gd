@@ -141,7 +141,7 @@ func default_settings(kind: String) -> Dictionary:
 		"power_grab": 80, "power_lift": 70, "power_top": 30, "power_carry": 25,
 		"top_drop_delay": 0.3,
 		"payout_mode": "count", "payout_every": 15, "payout_revenue": 15000, "strong_power": 100,
-		"move_speed": 0.2, "drop_speed": 0.17, "lift_speed": 0.15, "sway": 0.6,
+		"move_speed": 0.2, "drop_speed": 0.17, "lift_speed": 0.15, "sway": 0.6, "warigari": true,
 		"drop_depth": 100, "open_angle": 42, "auto_drop": true, "start_from_home": true,
 		"prize_ids": ["bear", "bunny", "penguin", "dino", "cat", "panda", "shiba", "shark", "frog", "figure_box"],
 	}
