@@ -180,12 +180,12 @@ func _prong_profile() -> PackedVector2Array:
 		# 끝에 고무 발판이 안쪽을 향한다. 평소(다 오므린 상태)에는 발끝 사이가 3cm 정도.
 		return PackedVector2Array([
 			Vector2(0.0, 0.006) * s,
-			Vector2(0.016, -0.012) * s,
-			Vector2(0.062, -0.07) * s,
-			Vector2(0.04, -0.1) * s,
-			Vector2(-0.01, -0.142) * s,
-			Vector2(-0.03, -0.158) * s,
-			Vector2(-0.044, -0.164) * s,
+			Vector2(0.017, -0.013) * s,
+			Vector2(0.064, -0.078) * s,
+			Vector2(0.042, -0.112) * s,
+			Vector2(-0.01, -0.158) * s,
+			Vector2(-0.03, -0.176) * s,
+			Vector2(-0.044, -0.183) * s,
 		])
 	return PackedVector2Array([
 		Vector2(0.0, 0.004) * s,

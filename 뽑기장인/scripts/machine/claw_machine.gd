@@ -260,23 +260,27 @@ func _build_cabinet() -> void:
 	var tex_tag := "big" if kind != "small" else "small"
 
 	# 아래 캐비닛(배출구 구멍이 있는 앞판은 조각으로)
+	# 옆판이 앞뒤 끝까지, 앞판·뒷판은 옆판 사이에 끼운다(같은 면이 겹쳐 테두리가 깜빡이는 것 방지)
 	_box(Vector3(t, base_h, D), Vector3(-hw + t * 0.5, base_h * 0.5, 0), paint)
 	_box(Vector3(t, base_h, D), Vector3(hw - t * 0.5, base_h * 0.5, 0), paint)
-	_box(Vector3(W, base_h, t), Vector3(0, base_h * 0.5, -hd + t * 0.5), paint)
+	var iw := hw - t  # 안쪽 반너비
+	_box(Vector3(iw * 2.0, base_h, t), Vector3(0, base_h * 0.5, -hd + t * 0.5 + 0.002), paint)
 	var open_x0 := -ix
 	var open_x1 := chute_x
 	var open_y0 := bin_y
 	var open_y1 := bin_y + open_h
+	var fz := hd - t * 0.5 - 0.002
 	# 앞판: 구멍 오른쪽, 구멍 위, 구멍 아래, 구멍 왼쪽
-	_box(Vector3(hw - open_x1, base_h, t), Vector3((open_x1 + hw) * 0.5, base_h * 0.5, hd - t * 0.5), white)
-	_box(Vector3(open_x1 - (-hw), base_h - open_y1, t), Vector3((-hw + open_x1) * 0.5, (open_y1 + base_h) * 0.5, hd - t * 0.5), white)
-	_box(Vector3(open_x1 - (-hw), open_y0, t), Vector3((-hw + open_x1) * 0.5, open_y0 * 0.5, hd - t * 0.5), white)
-	_box(Vector3(open_x0 - (-hw), open_y1 - open_y0, t), Vector3((-hw + open_x0) * 0.5, (open_y0 + open_y1) * 0.5, hd - t * 0.5), white)
+	_box(Vector3(iw - open_x1, base_h, t), Vector3((open_x1 + iw) * 0.5, base_h * 0.5, fz), white)
+	_box(Vector3(open_x1 + iw, base_h - open_y1, t), Vector3((-iw + open_x1) * 0.5, (open_y1 + base_h) * 0.5, fz), white)
+	_box(Vector3(open_x1 + iw, open_y0, t), Vector3((-iw + open_x1) * 0.5, open_y0 * 0.5, fz), white)
+	if open_x0 > -iw + 0.001:
+		_box(Vector3(open_x0 + iw, open_y1 - open_y0, t), Vector3((-iw + open_x0) * 0.5, (open_y0 + open_y1) * 0.5, fz), white)
 	# 앞판 장식 띠
-	_box(Vector3(W + 0.004, 0.05, 0.01), Vector3(0, base_h - 0.06, hd + 0.002), paint)
-	_box(Vector3(W + 0.004, 0.025, 0.01), Vector3(0, 0.06, hd + 0.002), paint)
+	_box(Vector3(W + 0.008, 0.05, 0.012), Vector3(0, base_h - 0.06, hd + 0.004), paint)
+	_box(Vector3(W + 0.008, 0.025, 0.012), Vector3(0, 0.06, hd + 0.004), paint)
 	# 받침(다리)
-	_box(Vector3(W + 0.02, 0.05, D + 0.02), Vector3(0, 0.025, 0), dark)
+	_box(Vector3(W + 0.02, 0.046, D + 0.02), Vector3(0, 0.023, 0), dark)
 	# 배출구 투명 덮개(아래로 젖혀지는 플랩 느낌)
 	var flap := StandardMaterial3D.new()
 	flap.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -763,6 +767,8 @@ func _initial_prizes() -> void:
 			p.load_state(st, global_transform)
 			placed += 1
 		if placed > 0:
+			if kind != "bridge":
+				top_up.call_deferred()
 			return
 	fill_random(initial_fill)
 
@@ -791,12 +797,41 @@ func fill_random(count: int, ids: Array = []) -> void:
 		ids = settings.get("prize_ids", PrizeCatalog.ids_for(kind))
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
+	# 겹치지 않게 층층이 떨어뜨려 쌓는다(가득 찬 실제 기계처럼)
+	var margin := 0.09 if kind != "small" else 0.05
+	var min_d := 0.13 if kind != "small" else 0.075
+	var placed: Array[Vector3] = []
+	var top_y := glass_top - 0.38 if kind != "small" else glass_top - 0.3
 	for i in count:
 		var id: String = ids[rng.randi() % ids.size()]
-		var h := 0.25 + (i / 6) * 0.12
-		var lp := _rand_pos_in_bed(rng, 0.09 if kind != "small" else 0.05)
-		lp.y = base_h + min(h, glass_top - base_h - 0.45)
+		var lp := Vector3.ZERO
+		var y := base_h + 0.12
+		for tries in 40:
+			lp = _rand_pos_in_bed(rng, margin)
+			y = base_h + 0.12
+			# 같은 높이에 너무 가까운 것이 있으면 한 층 위로
+			var ok := false
+			while y < top_y:
+				ok = true
+				for q in placed:
+					if absf(q.y - y) < min_d and Vector2(q.x - lp.x, q.z - lp.z).length() < min_d:
+						ok = false
+						break
+				if ok:
+					break
+				y += min_d * 0.9
+			if ok:
+				break
+		lp.y = minf(y, top_y)
+		placed.append(lp)
 		add_prize(id, to_global(lp), rng.randf() * TAU, rng)
+
+
+## 저장된 상품이 기본 개수보다 적으면 위에서 더 떨어뜨려 채운다(처음부터 넉넉하게 차 있는 기계)
+func top_up() -> void:
+	var n := get_prizes().size()
+	if n < int(initial_fill * 0.85):
+		fill_random(initial_fill - n)
 
 
 func add_prize(id: String, global_pos: Vector3, rot_y: float = 0.0, rng: RandomNumberGenerator = null) -> Prize:
@@ -1078,13 +1113,16 @@ func _physics_process(delta: float) -> void:
 				claw.press_touching(6.0)
 			if phase_t > 0.75:
 				claw.set_power(_power("power_lift"))
+				_remember_grabbed()
 				_set_state(State.LIFTING)
 		State.LIFTING:
+			_check_slip()
 			head_y += float(settings["lift_speed"]) * delta
 			if head_y >= rest_y:
 				head_y = rest_y
 				_set_state(State.TOP_HOLD)
 		State.TOP_HOLD:
+			_check_slip()
 			# 정상에 도착하면 일정 시간 뒤 힘이 빠진다(일명 '정상 드롭')
 			if phase_t >= float(settings["top_drop_delay"]) and claw.power != _power("power_top"):
 				claw.set_power(_power("power_top"))
@@ -1123,6 +1161,38 @@ func _physics_process(delta: float) -> void:
 	_update_sway(delta)
 	_place_claw_now()
 	_update_audio()
+
+
+## UFO형(일본 기계): 잡은 상품의 처음 높이를 기억해 두고, 몇 cm 이상 들리면 팔이 버티지 못하고 놓친다.
+## → 무거운 피규어 상자는 '살짝' 들렸다 미끄러지며 자리만 옮겨진다(통째로 들어 옮기는 일은 없음).
+const UFO_MAX_LIFT := 0.035
+var _grab_y := {}
+
+
+func _remember_grabbed() -> void:
+	_grab_y.clear()
+	if claw_style != "ufo":
+		return
+	for p in claw.prongs:
+		for b in p.get_colliding_bodies():
+			if b is RigidBody3D:
+				_grab_y[b] = (b as RigidBody3D).global_position.y
+
+
+func _check_slip() -> void:
+	if claw_style != "ufo" or not claw.closing:
+		return
+	# 들어 올리는 중에 새로 닿은 상품도 그때 높이부터 잰다
+	for p in claw.prongs:
+		for nb in p.get_colliding_bodies():
+			if nb is RigidBody3D and not _grab_y.has(nb):
+				_grab_y[nb] = (nb as RigidBody3D).global_position.y
+	for b in _grab_y:
+		if is_instance_valid(b) and (b as RigidBody3D).global_position.y - float(_grab_y[b]) > UFO_MAX_LIFT:
+			_grab_y.clear()
+			claw.open()
+			Sfx.play_at("claw_open", claw.head.global_position, -6.0)
+			return
 
 
 ## 발끝이 바닥(상품 받침)에 닿았는지 – 옆 유리벽에 스치는 것은 무시

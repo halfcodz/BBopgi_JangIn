@@ -9,6 +9,10 @@ enum Mode { WALK, MACHINE, UI }
 
 const WALK_SPEED := 2.4
 const RUN_SPEED := 4.2
+const CROUCH_SPEED := 1.15
+const JUMP_VELOCITY := 3.1  # 약 50cm 점프
+const STAND_EYE := 1.62
+const CROUCH_EYE := 1.02
 
 var mode := Mode.WALK
 var camera: Camera3D
@@ -25,6 +29,13 @@ var _step_t := 0.0
 var _step_i := 0
 var ui_open := false
 var zoom := 0.0  ## +/- 키로 확대(양수) / 축소(음수), 도 단위
+var body_shape: CapsuleShape3D
+var body_cs: CollisionShape3D
+var crouch := 0.0  ## 0 = 서 있음, 1 = 완전히 앉음
+var _was_on_floor := true
+var _land_dip := 0.0  ## 착지할 때 무릎이 굽혀지는 느낌(머리가 살짝 내려감)
+var _bob := 0.0
+var _phase := 0.0  ## 걸음 위상(끊기지 않게 계속 누적)
 const VIEW_NAMES := ["정면", "오른쪽 비스듬히", "왼쪽 비스듬히", "가까이"]
 
 
@@ -38,6 +49,8 @@ func _ready() -> void:
 	cs.shape = cap
 	cs.position.y = 0.85
 	add_child(cs)
+	body_shape = cap
+	body_cs = cs
 	head = Node3D.new()
 	head.position.y = 1.62
 	add_child(head)
@@ -120,26 +133,65 @@ func _walk(delta: float) -> void:
 		dir = (transform.basis * Vector3(iv.x, 0, iv.y))
 		dir.y = 0
 		dir = dir.normalized() * min(iv.length(), 1.0)
+	# 앉기(Ctrl 누르는 동안): 머리 높이·몸 높이를 낮추고 천천히 걷는다. 머리 위가 막혀 있으면 계속 앉아 있다
+	var want_crouch := Input.is_action_pressed("crouch") and not ui_open
+	if not want_crouch and crouch > 0.01 and _ceiling_blocked():
+		want_crouch = true
+	crouch = move_toward(crouch, 1.0 if want_crouch else 0.0, delta * 5.0)
+	var h: float = lerp(1.7, 1.12, crouch)
+	body_shape.height = h
+	body_cs.position.y = h * 0.5
 	var sp := RUN_SPEED if Input.is_action_pressed("run") else WALK_SPEED
+	sp = lerp(sp, CROUCH_SPEED, crouch)
 	var target := dir * sp
-	velocity.x = move_toward(velocity.x, target.x, 18.0 * delta)
-	velocity.z = move_toward(velocity.z, target.z, 18.0 * delta)
-	if not is_on_floor():
-		velocity.y -= 9.81 * delta
-	else:
+	var accel := 18.0 if is_on_floor() else 4.0  # 공중에서는 방향을 조금만 바꿀 수 있다
+	velocity.x = move_toward(velocity.x, target.x, accel * delta)
+	velocity.z = move_toward(velocity.z, target.z, accel * delta)
+	if is_on_floor():
 		velocity.y = 0
+		# 점프(Space)
+		if Input.is_action_just_pressed("jump") and not ui_open and crouch < 0.5:
+			velocity.y = JUMP_VELOCITY
+			Sfx.play("step1", -10.0, 0.8)
+	else:
+		velocity.y -= 9.81 * delta
+	var fall_speed := -velocity.y
 	move_and_slide()
-	# 발소리 & 머리 흔들림
+	# 착지: 발소리 + 무릎 굽힘
+	if is_on_floor() and not _was_on_floor:
+		_land_dip = clampf(fall_speed * 0.025, 0.02, 0.09)
+		Sfx.play("step2", -8.0, 0.85)
+	_was_on_floor = is_on_floor()
+	_land_dip = move_toward(_land_dip, 0.0, delta * 0.35)
+	# 발소리 & 머리 흔들림(앉아서 걸으면 느리고 작게, 좌우로 살짝)
+	var eye: float = lerp(STAND_EYE, CROUCH_EYE, crouch)
 	var hs := Vector2(velocity.x, velocity.z).length()
 	if hs > 0.3 and is_on_floor():
-		_step_t += delta * hs * 1.9
-		head.position.y = 1.62 + sin(_step_t * PI) * 0.018
+		var adv: float = delta * hs * lerp(1.9, 2.6, crouch)
+		_step_t += adv
+		_phase += adv
+		_bob = move_toward(_bob, 1.0, delta * 4.0)
 		if _step_t >= 1.0:
 			_step_t -= 1.0
 			_step_i = (_step_i + 1) % 3
-			Sfx.play("step%d" % _step_i, -16.0, randf_range(0.9, 1.1))
+			Sfx.play("step%d" % _step_i, lerp(-16.0, -22.0, crouch), randf_range(0.9, 1.1))
 	else:
-		head.position.y = lerp(head.position.y, 1.62, delta * 8.0)
+		_bob = move_toward(_bob, 0.0, delta * 4.0)
+	var amp: float = lerp(0.018, 0.012, crouch) * _bob
+	head.position.y = eye + absf(sin(_phase * PI)) * amp * 1.6 - amp * 0.8 - _land_dip
+	head.position.x = cos(_phase * PI) * amp * lerp(0.6, 1.4, crouch)
+	head.rotation.z = -head.position.x * 0.6
+
+
+func _ceiling_blocked() -> bool:
+	var q := PhysicsShapeQueryParameters3D.new()
+	var sp := SphereShape3D.new()
+	sp.radius = 0.22
+	q.shape = sp
+	q.collision_mask = 1 | 8
+	q.transform = Transform3D(Basis(), global_position + Vector3(0, 1.5, 0))
+	q.exclude = [get_rid()]
+	return not get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty()
 
 
 func _update_focus() -> void:

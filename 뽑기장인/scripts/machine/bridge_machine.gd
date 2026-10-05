@@ -294,7 +294,7 @@ func _rebuild_bars() -> void:
 	var plate_pm := PhysicsMaterial.new()
 	plate_pm.friction = 0.45
 	var th := 0.03
-	var py := bar_y - 0.05 - th * 0.5
+	var py := bar_y - 0.10 - th * 0.5  # 팔이 상자 끝 아래로 들어갈 수 있을 만큼 낮게
 	var f0 := zmax + r + 0.004
 	if z_front - 0.01 > f0:
 		_plate(Vector3(ix * 2.0, th, z_front - f0), Vector3(0, py, (f0 + z_front) * 0.5), plate, plate_pm)

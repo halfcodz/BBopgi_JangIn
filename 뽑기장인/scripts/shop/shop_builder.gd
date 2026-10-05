@@ -174,27 +174,27 @@ func _add_machine(id: String, kind: String, pos: Vector3, rot_y: float, color: C
 func _build_machines() -> void:
 	# 뒷벽: 큰 인형 기계 + 전자기기 경품 기계
 	var bz := -RZ + 0.52
-	_add_machine("big_1", "big", Vector3(-5.6, 0, bz), 0, Color(1.0, 0.45, 0.66), {"name": "왕인형 뽑기", "prize_ids": ["bear", "bunny", "penguin", "dino", "cat", "panda", "shiba", "shark", "frog"]}, 18)
-	_add_machine("big_2", "big", Vector3(-4.4, 0, bz), 0, Color(0.35, 0.78, 0.68), {"name": "바다·공룡 친구들", "prize_ids": ["dino", "penguin", "shark", "frog"]}, 16)
-	_add_machine("big_3", "big", Vector3(-3.2, 0, bz), 0, Color(0.62, 0.5, 0.92), {"name": "멍냥·판다 하우스", "prize_ids": ["shiba", "panda", "bunny", "cat"], "payout_mode": "revenue"}, 16)
-	_add_machine("big_4", "big", Vector3(-2.0, 0, bz), 0, Color(1.0, 0.62, 0.3), {"name": "피규어 박스", "prize_ids": ["figure_box", "bear"], "power_grab": 85, "power_top": 40}, 12)
-	_add_machine("big_5", "big", Vector3(-0.8, 0, bz), 0, Color(0.3, 0.6, 1.0), {"name": "경품 대잔치", "prize_ids": ["gift_earbuds", "gift_powerbank", "gift_fan", "gift_lamp"], "power_grab": 85, "power_lift": 75, "power_top": 35}, 12)
-	_add_machine("big_6", "big", Vector3(0.4, 0, bz), 0, Color(0.95, 0.35, 0.35), {"name": "스피커·무드등", "prize_ids": ["gift_speaker", "gift_lamp", "gift_earbuds"], "power_grab": 90, "power_lift": 80, "power_top": 40}, 10)
+	_add_machine("big_1", "big", Vector3(-5.6, 0, bz), 0, Color(1.0, 0.45, 0.66), {"name": "왕인형 뽑기", "prize_ids": ["bear", "bunny", "penguin", "dino", "cat", "panda", "shiba", "shark", "frog"]}, 30)
+	_add_machine("big_2", "big", Vector3(-4.4, 0, bz), 0, Color(0.35, 0.78, 0.68), {"name": "바다·공룡 친구들", "prize_ids": ["dino", "penguin", "shark", "frog"]}, 26)
+	_add_machine("big_3", "big", Vector3(-3.2, 0, bz), 0, Color(0.62, 0.5, 0.92), {"name": "멍냥·판다 하우스", "prize_ids": ["shiba", "panda", "bunny", "cat"], "payout_mode": "revenue"}, 26)
+	_add_machine("big_4", "big", Vector3(-2.0, 0, bz), 0, Color(1.0, 0.62, 0.3), {"name": "피규어 박스", "prize_ids": ["figure_box", "bear"], "power_grab": 85, "power_top": 40}, 20)
+	_add_machine("big_5", "big", Vector3(-0.8, 0, bz), 0, Color(0.3, 0.6, 1.0), {"name": "경품 대잔치", "prize_ids": ["gift_earbuds", "gift_powerbank", "gift_fan", "gift_lamp"], "power_grab": 85, "power_lift": 75, "power_top": 35}, 20)
+	_add_machine("big_6", "big", Vector3(0.4, 0, bz), 0, Color(0.95, 0.35, 0.35), {"name": "스피커·무드등", "prize_ids": ["gift_speaker", "gift_lamp", "gift_earbuds"], "power_grab": 90, "power_lift": 80, "power_top": 40}, 16)
 	# 왼쪽 벽: 작은 기계
 	var sx := -RX + 0.4
-	_add_machine("small_1", "small", Vector3(sx, 0, -3.6), PI / 2, Color(0.4, 0.68, 1.0), {"name": "삐약이 미니뽑기", "prize_ids": ["chick", "duck", "hamster", "whale"]}, 22)
-	_add_machine("small_2", "small", Vector3(sx, 0, -2.8), PI / 2, Color(1.0, 0.78, 0.25), {"name": "키링 뽑기", "prize_ids": ["mini_bear", "mini_bunny"], "prong_count": 2, "open_angle": 34}, 18)
-	_add_machine("small_3", "small", Vector3(sx, 0, -2.0), PI / 2, Color(1.0, 0.5, 0.6), {"name": "과자·캡슐 뽑기", "prize_ids": ["snack", "capsule", "mochi"], "control_mode": "2button"}, 22)
-	_add_machine("small_4", "small", Vector3(sx, 0, -1.2), PI / 2, Color(0.55, 0.85, 0.45), {"name": "모찌볼 천국", "prize_ids": ["mochi", "chick", "duck", "mini_bear", "hamster", "whale", "mini_frog"]}, 22)
+	_add_machine("small_1", "small", Vector3(sx, 0, -3.6), PI / 2, Color(0.4, 0.68, 1.0), {"name": "삐약이 미니뽑기", "prize_ids": ["chick", "duck", "hamster", "whale"]}, 36)
+	_add_machine("small_2", "small", Vector3(sx, 0, -2.8), PI / 2, Color(1.0, 0.78, 0.25), {"name": "키링 뽑기", "prize_ids": ["mini_bear", "mini_bunny"], "prong_count": 2, "open_angle": 34}, 30)
+	_add_machine("small_3", "small", Vector3(sx, 0, -2.0), PI / 2, Color(1.0, 0.5, 0.6), {"name": "과자·캡슐 뽑기", "prize_ids": ["snack", "capsule", "mochi"], "control_mode": "2button"}, 36)
+	_add_machine("small_4", "small", Vector3(sx, 0, -1.2), PI / 2, Color(0.55, 0.85, 0.45), {"name": "모찌볼 천국", "prize_ids": ["mochi", "chick", "duck", "mini_bear", "hamster", "whale", "mini_frog"]}, 36)
 	# 가운데 섬: 굿즈 미니 기계 6대(키캡·말랑이·팝잇·슬라임)
 	var gz := -1.5
 	var goods := [
-		["small_5", "키캡 키링", Color(0.55, 0.5, 0.95), ["keycap_heart", "keycap_cat"], {"prong_count": 2, "open_angle": 34}, 26],
-		["small_6", "말랑이 천국", Color(1.0, 0.72, 0.45), ["squishy_bread", "squishy_peach", "squishy_paw", "mochi"], {}, 22],
-		["small_7", "냥발 말랑이", Color(1.0, 0.6, 0.75), ["squishy_paw", "squishy_peach"], {}, 22],
-		["small_8", "팝잇·슬라임", Color(0.45, 0.85, 0.8), ["popit", "slime_cup"], {}, 20],
-		["small_9", "왕키캡 스페셜", Color(0.3, 0.3, 0.4), ["keycap_cat", "keycap_heart"], {"control_mode": "2button", "prong_count": 2, "open_angle": 34}, 24],
-		["small_10", "랜덤 굿즈", Color(1.0, 0.85, 0.35), ["keycap_heart", "squishy_bread", "popit", "slime_cup", "squishy_paw", "keycap_cat", "capsule"], {}, 24],
+		["small_5", "키캡 키링", Color(0.55, 0.5, 0.95), ["keycap_heart", "keycap_cat"], {"prong_count": 2, "open_angle": 34}, 43],
+		["small_6", "말랑이 천국", Color(1.0, 0.72, 0.45), ["squishy_bread", "squishy_peach", "squishy_paw", "mochi"], {}, 36],
+		["small_7", "냥발 말랑이", Color(1.0, 0.6, 0.75), ["squishy_paw", "squishy_peach"], {}, 36],
+		["small_8", "팝잇·슬라임", Color(0.45, 0.85, 0.8), ["popit", "slime_cup"], {}, 33],
+		["small_9", "왕키캡 스페셜", Color(0.3, 0.3, 0.4), ["keycap_cat", "keycap_heart"], {"control_mode": "2button", "prong_count": 2, "open_angle": 34}, 40],
+		["small_10", "랜덤 굿즈", Color(1.0, 0.85, 0.35), ["keycap_heart", "squishy_bread", "popit", "slime_cup", "squishy_paw", "keycap_cat", "capsule"], {}, 40],
 	]
 	for i in goods.size():
 		var g: Array = goods[i]
@@ -204,9 +204,9 @@ func _build_machines() -> void:
 	Build.text(self, "★ 키캡 · 말랑이 · 피젯 존 ★", Vector3(-2.5, 2.25, gz + 0.1), 80, 0.0016, Color(1.0, 0.95, 0.7), Color(0.6, 0.3, 0.9), "res://assets/fonts/BlackHanSans-Regular.ttf")
 	# 가운데 섬 2: 경품·인형 큰 기계
 	var cz := 1.3
-	_add_machine("big_7", "big", Vector3(1.2, 0, cz), 0, Color(0.2, 0.75, 0.95), {"name": "이어폰·배터리", "prize_ids": ["gift_earbuds", "gift_powerbank"], "power_grab": 85, "power_lift": 75, "power_top": 35}, 10)
-	_add_machine("big_8", "big", Vector3(2.4, 0, cz), 0, Color(0.98, 0.5, 0.75), {"name": "인형+경품 믹스", "prize_ids": ["bear", "bunny", "gift_fan", "gift_lamp", "cat"]}, 14)
-	_add_machine("big_9", "big", Vector3(3.6, 0, cz), 0, Color(0.6, 0.85, 0.35), {"name": "개굴·상어 파티", "prize_ids": ["frog", "shark", "penguin"]}, 16)
+	_add_machine("big_7", "big", Vector3(1.2, 0, cz), 0, Color(0.2, 0.75, 0.95), {"name": "이어폰·배터리", "prize_ids": ["gift_earbuds", "gift_powerbank"], "power_grab": 85, "power_lift": 75, "power_top": 35}, 16)
+	_add_machine("big_8", "big", Vector3(2.4, 0, cz), 0, Color(0.98, 0.5, 0.75), {"name": "인형+경품 믹스", "prize_ids": ["bear", "bunny", "gift_fan", "gift_lamp", "cat"]}, 23)
+	_add_machine("big_9", "big", Vector3(3.6, 0, cz), 0, Color(0.6, 0.85, 0.35), {"name": "개굴·상어 파티", "prize_ids": ["frog", "shark", "penguin"]}, 26)
 	# 일본식 UFO 피규어 존: 두 칸짜리 기계 2쌍(실제 매장처럼 나란히 붙여 둔다)
 	var bx := -RX + 0.62
 	var jp := [

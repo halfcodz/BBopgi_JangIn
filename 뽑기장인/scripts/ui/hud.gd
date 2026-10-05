@@ -16,6 +16,7 @@ var mp_big: Label
 var inspector: Inspector
 var mp_keys: Label
 var mp_key: Label
+var bridge_guide: BridgeGuide
 var toast_box: VBoxContainer
 var help_panel: PanelContainer
 var pause_panel: PanelContainer
@@ -158,6 +159,21 @@ func _ready() -> void:
 	mp_keys = UIKit.label("", 15, Color(0.5, 0.4, 0.5))
 	mv.add_child(mp_keys)
 
+	# 일본식 기계 공략 도우미(오른쪽, 조작 패널 위)
+	bridge_guide = BridgeGuide.new()
+	bridge_guide.anchor_left = 1.0
+	bridge_guide.anchor_right = 1.0
+	bridge_guide.anchor_top = 1.0
+	bridge_guide.anchor_bottom = 1.0
+	bridge_guide.offset_left = -300
+	bridge_guide.offset_right = -20
+	bridge_guide.offset_top = -560
+	bridge_guide.offset_bottom = -200
+	bridge_guide.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	bridge_guide.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	bridge_guide.visible = false
+	root.add_child(bridge_guide)
+
 	# 알림
 	toast_box = VBoxContainer.new()
 	toast_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -235,6 +251,10 @@ func _on_mode(mode: int) -> void:
 
 
 func _process(_delta: float) -> void:
+	var on_bridge: bool = player != null and player.mode == Player.Mode.MACHINE and player.machine is BridgeMachine
+	bridge_guide.visible = on_bridge
+	if on_bridge:
+		bridge_guide.machine = player.machine
 	if player and player.mode == Player.Mode.MACHINE and player.machine:
 		var m: ClawMachine = player.machine
 		mp_name.text = String(m.settings.get("name", "인형뽑기"))
@@ -355,7 +375,7 @@ func _build_help(root: Control) -> void:
 	var v := VBoxContainer.new()
 	help_panel.add_child(v)
 	v.add_child(UIKit.title("뽑기장인 사용 설명서"))
-	var txt := """[걷기] WASD 이동 · Shift 달리기 · 마우스 둘러보기 · E 상호작용 · +/- 또는 휠로 확대/축소
+	var txt := """[걷기] WASD 이동 · Shift 달리기 · Space 점프 · Ctrl 앉기(앉아서 걷기) · 마우스 둘러보기 · E 상호작용 · +/- 또는 휠로 확대/축소
 [인형뽑기] 기계 앞에서 E → B로 1,000원(N은 5,000원) 넣기 → 시간 안에 조이스틱 이동 → Space로 집게 내리기
   · C: 정면 → 오른쪽 비스듬히 → 왼쪽 비스듬히 → 가까이 (깊이 확인!)  · +/- : 확대·축소
   · 집게는 줄에 매달려 흔들립니다. 멈춘 뒤 흔들림이 잦아들 때 내리세요.

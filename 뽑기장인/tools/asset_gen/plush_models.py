@@ -172,7 +172,7 @@ def bear():
     eyes = []
     for side in (1, -1):
         pos, nrm = surface_point(head, head_c, (0.42 * side, 0.18, 0.88))
-        eyes.append((("eye_r" if side > 0 else "eye_l"), dome(pos, nrm, 0.0072, iris=(0.12, 0.07, 0.04)), "eye"))
+        eyes.append((("eye_r" if side > 0 else "eye_l"), kawaii_eye(pos, nrm, 0.0072 * EYE_SCALE), "eye"))
     nose_top, nn = surface_point(head, MUZ_C, (0, 0.38, 1))
     nose = ellipsoid  # 코는 SDF 로 따로 메시화
     nose_c = nose_top + nn * 0.002
@@ -211,11 +211,55 @@ def bear():
 THREAD_DARK = (0.12, 0.07, 0.06)
 
 
-def eyes_on(head_sdf, center, dirs, radius, iris=(0.12, 0.07, 0.04), color=(0.02, 0.02, 0.025)):
+EYE_SCALE = 1.85  # 요즘 뽑기방 인형처럼 큼직하고 반짝이는 눈
+
+
+def kawaii_eye(center, normal, radius, iris=(0.45, 0.25, 0.15), base=(0.04, 0.03, 0.05)):
+    """반짝이 눈: 세로로 살짝 긴 반구 + 아래쪽 홍채 그라데이션 + 큰/작은 하이라이트(인쇄·자수 느낌)."""
+    n = np.asarray(normal, float)
+    n /= np.linalg.norm(n)
+    up = np.array([0.0, 1.0, 0.0]) - n * n[1]
+    if np.linalg.norm(up) < 1e-4:
+        up = np.array([0.0, 0.0, 1.0])
+    up /= np.linalg.norm(up)
+    right = np.cross(up, n)
+    s = trimesh.creation.icosphere(subdivisions=3, radius=1.0)
+    v = np.asarray(s.vertices)
+    # 로컬: x=right, y=up, z=normal / 납작한 타원 돔
+    rx, ry, rz = radius, radius * 1.22, radius * 0.42
+    local = v * [rx, ry, rz]
+    world = local[:, 0:1] * right + local[:, 1:2] * up + local[:, 2:3] * n
+    nl = v / np.array([rx, ry, rz]) ** 2
+    nl /= np.linalg.norm(nl, axis=1, keepdims=True)
+    nw = nl[:, 0:1] * right + nl[:, 1:2] * up + nl[:, 2:3] * n
+    u, w = v[:, 0], v[:, 1]
+    cols = np.tile(np.array(base, float), (len(v), 1))
+    t = np.clip((-w + 0.05) / 0.85, 0, 1)
+    cols = cols * (1 - t[:, None] * 0.85) + np.array(iris) * (t[:, None] * 0.85)
+    ring = np.clip(1 - np.abs(np.sqrt(u * u + w * w) - 0.92) / 0.08, 0, 1)
+    cols = cols * (1 - ring[:, None] * 0.5)
+    h1 = np.clip(1 - np.hypot(u + 0.32, w - 0.38) / 0.3, 0, 1)
+    h2 = np.clip(1 - np.hypot(u - 0.3, w + 0.38) / 0.13, 0, 1)
+    h3 = np.clip(1 - np.hypot(u - 0.05, w - 0.6) / 0.08, 0, 1)
+    hl = np.clip((h1 * 3.5) ** 2 + (h2 * 3) ** 2 + (h3 * 3) ** 2, 0, 1)
+    cols = cols * (1 - hl[:, None]) + hl[:, None] * np.array([1.0, 1.0, 1.0])
+    front = v[:, 2] > -0.2
+    keep = np.where(front)[0]
+    remap = -np.ones(len(v), int)
+    remap[keep] = np.arange(len(keep))
+    faces = np.asarray(s.faces)
+    fk = faces[np.all(front[faces], axis=1)]
+    c = np.asarray(center) - n * rz * 0.25
+    m = trimesh.Trimesh(world[keep] + c, remap[fk], vertex_normals=nw[keep], process=False)
+    return finalize(m, nw[keep], cols[keep])
+
+
+def eyes_on(head_sdf, center, dirs, radius, iris=(0.45, 0.25, 0.15), color=(0.04, 0.03, 0.05)):
     out = []
+    r = radius * EYE_SCALE
     for i, dv in enumerate(dirs):
         pos, nrm = surface_point(head_sdf, center, dv)
-        out.append((f"eye_{i}", dome(pos, nrm, radius, iris=iris, color=color), "eye"))
+        out.append((f"eye_{i}", kawaii_eye(pos, nrm, r, iris=iris, base=color), "eye"))
     return out
 
 
@@ -907,7 +951,7 @@ def frog():
     for sx in (1, -1):
         e = np.array([0.04 * sx, 0.115, 0.03])
         pos, nrm = surface_point(body, e, (0.15 * sx, 0.25, 1))
-        acc.append((f"eye_{sx}", dome(pos, nrm, 0.012, iris=(0.15, 0.1, 0.05)), "eye"))
+        acc.append((f"eye_{sx}", kawaii_eye(pos, nrm, 0.012 * 1.3), "eye"))
     m0, _ = surface_point(body, c, (0, 0.15, 1))
     acc.append(thread_curve(body, [m0 + [-0.03, 0.006, -0.012], m0 + [-0.015, -0.004, -0.002], m0, m0 + [0.015, -0.004, -0.002], m0 + [0.03, 0.006, -0.012]], "smile", samples=24, radius=0.0013))
     bp.accessories = acc

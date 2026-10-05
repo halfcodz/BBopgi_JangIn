@@ -54,6 +54,8 @@ func _register_inputs() -> void:
 	_add_key("move_left", [KEY_A, KEY_LEFT])
 	_add_key("move_right", [KEY_D, KEY_RIGHT])
 	_add_key("run", [KEY_SHIFT])
+	_add_key("jump", [KEY_SPACE])
+	_add_key("crouch", [KEY_CTRL])
 	_add_key("interact", [KEY_E])
 	_add_key("claw_drop", [KEY_SPACE, KEY_ENTER])
 	_add_key("insert_1000", [KEY_B])
