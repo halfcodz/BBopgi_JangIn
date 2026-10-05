@@ -24,10 +24,20 @@ env:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
+      # Godot 4.7 은 최신 iOS SDK(Metal 새 기능)로 만들어져 있어 가장 최신 Xcode 가 필요하다
+      - name: 최신 Xcode 고르기
+        run: |
+          ls -d /Applications/Xcode*.app
+          X=$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -n 1)
+          [ -z "$X" ] && X=$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
 
       - name: Godot 받기
         run: |
