@@ -16,9 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 env:
   GODOT_VERSION: "4.7"
@@ -97,16 +95,14 @@ jobs:
           ls -la site
           test -f site/index.pck && test -f site/index.wasm
 
-      - uses: actions/upload-pages-artifact@v3
+      # 결과를 gh-pages 브랜치에 올린다(GitHub Pages 가 이 브랜치를 그대로 보여 줌)
+      - name: gh-pages 브랜치로 배포
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          force_orphan: true
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"
+          commit_message: "웹앱 배포"
