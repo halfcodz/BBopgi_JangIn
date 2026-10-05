@@ -26,6 +26,10 @@ func _ready() -> void:
 	_build_counter()
 	_build_decor()
 	if Game.touch:
+		# 휴대폰: 쉬고 있는 기계들의 인형을 가게 전체에서 모양·재질별로 묶어 그린다
+		var pool := PrizePool.new()
+		pool.name = "PrizePool"
+		add_child(pool)
 		# 휴대폰: 벽·바닥 장식 같은 움직이지 않는 부품을 재질별로 합친다
 		RenderBatcher.merge_static.call_deferred(self, RenderBatcher.referenced_nodes(self))
 		RenderBatcher.hide_small_labels_far.call_deferred(self, 6.0)
@@ -55,6 +59,14 @@ func _build_environment() -> void:
 	e.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	e.adjustment_enabled = true
 	e.adjustment_saturation = 1.15
+	if Game.web:
+		# 웹(아이폰 사파리): 빛 번짐(glow)·색 보정은 소수점 색 버퍼가 필요한데, 아이폰 웹은 이를 제대로 지원하지 않아
+		# 밝은 곳(흰 바닥 칸 등)에 줄무늬 잡음이 생긴다 → 끄고 한 번에 그린다(더 빠르기도 함)
+		e.glow_enabled = false
+		e.adjustment_enabled = false
+		# 웹(호환 렌더러)의 SSAO 는 잡음을 걸러 주지 않아, 바닥 같은 넓은 면에 자글자글한 줄무늬가 생긴다 → 끈다
+		e.ssao_enabled = false
+		e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	we.environment = e
 	add_child(we)
 	var probe := ReflectionProbe.new()

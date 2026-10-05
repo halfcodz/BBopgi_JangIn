@@ -6,18 +6,26 @@ var player: Player
 var hud: HUD
 
 
+## 휴대폰 웹(가로 고정 화면)이면 가게·플레이어·화면 UI 를 처음부터 가로 화면용 SubViewport 안에 만든다
+## (다 만든 뒤 옮기면 물리 관절이 끊어져 인형이 흐트러지므로 옮기지 않는다)
+func _host() -> Node:
+	if Game.landscape_host and Game.landscape_host.vp:
+		return Game.landscape_host.vp
+	return self
+
+
 func _ready() -> void:
+	var host := _host()
 	shop = Shop.new()
 	shop.name = "Shop"
-	add_child(shop)
+	host.add_child(shop)
 	player = Player.new()
 	player.name = "Player"
 	player.position = Vector3(2.2, 0.05, 4.0)
 	player.rotation.y = 0.0
-	player.rotation.y = 0.0
-	add_child(player)
+	host.add_child(player)
 	hud = HUD.new()
-	add_child(hud)
+	host.add_child(hud)
 	hud.bind(player, shop)
 	shop.hud = hud
 	Sfx.play_bgm()
@@ -29,6 +37,13 @@ func _ready() -> void:
 	add_child(t)
 	await get_tree().create_timer(0.6).timeout
 	Game.say("왼쪽 아래를 밀어 걷고, 오른쪽을 밀어 둘러봐요. 기계를 톡 누르면 플레이!" if Game.touch else "뽑기장인에 오신 걸 환영해요! 기계 앞에서 E, 도움말은 H")
+
+
+## '처음부터 다시' 등으로 이 장면이 사라질 때, 다른 곳(SubViewport)에 만든 것들도 같이 지운다
+func _exit_tree() -> void:
+	for n in [shop, player, hud]:
+		if n and is_instance_valid(n) and n.get_parent() != self:
+			n.queue_free()
 
 
 var _dbg_t := 0.0

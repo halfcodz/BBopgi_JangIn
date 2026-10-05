@@ -21,11 +21,52 @@ static func referenced_nodes(obj: Object) -> Dictionary:
 			for e in v:
 				if e is Node:
 					out[e] = true
+				elif e is Dictionary:
+					# 배열 안 사전(예: 자판기 칸 정보의 버튼)도 본다
+					for e2 in e.values():
+						if e2 is Node:
+							out[e2] = true
 		elif v is Dictionary:
 			for e in v.values():
 				if e is Node:
 					out[e] = true
 	return out
+
+
+## 스크립트가 붙잡고 있는 재질(색을 바꾸거나 깜빡이는 재질)은 다른 재질과 합치지 않는다
+static func referenced_materials(obj: Object) -> Dictionary:
+	var out := {}
+	for prop in obj.get_property_list():
+		if not (int(prop["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE):
+			continue
+		var v = obj.get(prop["name"])
+		if v is Material:
+			out[v] = true
+		elif v is Array:
+			for e in v:
+				if e is Material:
+					out[e] = true
+	return out
+
+
+const _SIG_PROPS := ["albedo_color", "albedo_texture", "roughness", "metallic", "metallic_specular", "emission_enabled",
+	"emission", "emission_energy_multiplier", "emission_texture", "clearcoat_enabled", "clearcoat", "clearcoat_roughness",
+	"uv1_scale", "uv1_offset", "uv1_triplanar", "transparency", "cull_mode", "shading_mode", "texture_filter",
+	"vertex_color_use_as_albedo", "normal_enabled", "normal_texture", "rim_enabled", "depth_draw_mode", "no_depth_test"]
+
+
+## 겉보기가 똑같은 재질은 하나로(기계마다 같은 색 재질을 따로 만들어 그리기 횟수가 늘어나는 것 방지)
+static func _canon(m: Material, keep_mats: Dictionary, cache: Dictionary) -> Material:
+	if m == null or keep_mats.has(m) or not (m is StandardMaterial3D):
+		return m
+	var parts := []
+	for pn in _SIG_PROPS:
+		var v = m.get(pn)
+		parts.append(str(v.get_instance_id()) if v is Object else var_to_str(v))
+	var sig := "|".join(parts)
+	if not cache.has(sig):
+		cache[sig] = m
+	return cache[sig]
 
 
 static func _opaque_ok(m: Material) -> bool:
@@ -35,7 +76,8 @@ static func _opaque_ok(m: Material) -> bool:
 		return false  # 셰이더 재질은 어떤 효과를 쓰는지 몰라 건드리지 않는다
 	var b := m as BaseMaterial3D
 	if b.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
-		return false
+		# 거의 투명한 유리(무늬 없음)는 같이 합쳐도 티가 나지 않는다
+		return b.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA and b.albedo_color.a <= 0.25 and b.albedo_texture == null
 	if b.billboard_mode != BaseMaterial3D.BILLBOARD_DISABLED:
 		return false
 	if b.next_pass != null:
@@ -62,7 +104,7 @@ static func _fmt_key(mesh: Mesh, s: int) -> int:
 
 
 ## root 아래(스크립트가 붙은 다른 노드 안쪽은 제외) 움직이지 않는 기본 도형 메시를 합친다. 합친 개수 반환
-static func merge_static(root: Node3D, keep: Dictionary = {}) -> int:
+static func merge_static(root: Node3D, keep: Dictionary = {}, keep_mats: Dictionary = {}) -> int:
 	var cands: Array[MeshInstance3D] = []
 	var stack: Array = [root]
 	while not stack.is_empty():
@@ -90,10 +132,11 @@ static func merge_static(root: Node3D, keep: Dictionary = {}) -> int:
 	var inv := root.global_transform.affine_inverse()
 	var groups := {}  # [재질, 형식, 그림자] → SurfaceTool
 	var mats := {}
+	var canon_cache := {}
 	for mi in cands:
 		var xf := inv * mi.global_transform
 		for s in mi.mesh.get_surface_count():
-			var m := _surface_mat(mi, s)
+			var m := _canon(_surface_mat(mi, s), keep_mats, canon_cache)
 			var key := [m, _fmt_key(mi.mesh, s), mi.cast_shadow]
 			if not groups.has(key):
 				var st := SurfaceTool.new()
@@ -174,3 +217,17 @@ static func hide_small_labels_far(root: Node, dist: float) -> void:
 		var lab: Label3D = l
 		if lab.font_size * lab.pixel_size < 0.06 and lab.visibility_range_end == 0.0:
 			lab.visibility_range_end = dist
+
+
+## 크기가 size 보다 작은 부품은 dist 너머에서 그리지 않는다(상품은 제외)
+static func hide_small_parts_far(root: Node, skip: Node, size: float, dist: float) -> void:
+	for g in root.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = g
+		if skip and skip.is_ancestor_of(mi):
+			continue
+		if mi.mesh == null or mi.visibility_range_end > 0.0:
+			continue
+		var ab := mi.get_aabb()
+		var sc := mi.global_transform.basis.get_scale()
+		if (ab.size * sc).length() < size:
+			mi.visibility_range_end = dist

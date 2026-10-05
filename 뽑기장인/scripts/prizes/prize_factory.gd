@@ -41,7 +41,8 @@ static func fabric_material(fabric: String, colors: Array) -> Material:
 	if _mat_cache.has(key):
 		return _mat_cache[key]
 	var m := ShaderMaterial.new()
-	m.shader = PLUSH_SHADER
+	# 휴대폰 웹은 텍스처 읽기를 줄인 가벼운 원단 셰이더(겉모습은 거의 같음)
+	m.shader = load("res://assets/shaders/plush_lite.gdshader") if Game.web else PLUSH_SHADER
 	m.set_shader_parameter("main_color", colors[0])
 	m.set_shader_parameter("accent_color", colors[1] if colors.size() > 1 else colors[0])
 	m.set_shader_parameter("accent2_color", colors[2] if colors.size() > 2 else Color(0.98, 0.72, 0.78))

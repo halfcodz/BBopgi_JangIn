@@ -36,17 +36,13 @@ func _ready() -> void:
 	vp.physics_object_picking = false
 	vp.msaa_3d = Viewport.MSAA_DISABLED
 	vp.scaling_3d_scale = root.scaling_3d_scale
+	vp.mesh_lod_threshold = root.mesh_lod_threshold
 	container.add_child(vp)
 	_layout(true)
 
 
 func _process(_delta: float) -> void:
 	_layout(false)
-	# 처음 시작할 때 / '처음부터 다시' 로 장면이 새로 만들어졌을 때 게임 장면을 안으로 옮긴다
-	var scene := get_tree().current_scene
-	if scene and scene.get_parent() != vp and scene.get_parent() == get_tree().root:
-		scene.get_parent().remove_child(scene)
-		vp.add_child(scene)
 
 
 func _layout(force: bool) -> void:

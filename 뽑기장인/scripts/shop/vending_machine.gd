@@ -61,6 +61,9 @@ func _ready() -> void:
 	_build_controls()
 	_build_port()
 	Build.interact_body(self, self, Vector3(W, H - 0.1, 0.14), Vector3(0, H * 0.5, ZF + 0.02))
+	if Game.touch:
+		# 휴대폰: 움직이지 않는 부품을 재질별로 합쳐 그리기 횟수를 줄인다(버튼처럼 바뀌는 부품은 그대로)
+		RenderBatcher.merge_static.call_deferred(self, RenderBatcher.referenced_nodes(self), RenderBatcher.referenced_materials(self))
 
 
 # ------------------------------------------------------------------ 몸체

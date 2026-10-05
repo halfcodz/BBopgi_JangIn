@@ -68,6 +68,8 @@ func _setup_font_fallbacks() -> void:
 ## 휴대폰용 화면·성능 설정
 func _setup_mobile() -> void:
 	var win := get_tree().root
+	# 멀리 있는 인형·물건은 더 일찍 간단한 모양(LOD)으로 그린다(작은 화면에서는 차이가 안 보임)
+	win.mesh_lod_threshold = 4.0
 	# 기준 화면을 1280x720으로 → 휴대폰에서 글씨·버튼이 커진다(가로는 화면 비율에 맞춰 늘어남)
 	win.content_scale_size = Vector2i(1280, 720)
 	if phone:
@@ -77,13 +79,13 @@ func _setup_mobile() -> void:
 		Engine.max_physics_steps_per_frame = 4
 	if web:
 		# 휴대폰 웹(사파리): 그래픽 처리 여유가 적으므로 3D 해상도를 더 낮추고, 느려지면 물리를 늦춰 버틴다
-		win.scaling_3d_scale = 0.85  # 화면 배율을 2배로 묶어 두었으므로(웹 시작 화면) 3D는 거의 제 해상도로
+		win.scaling_3d_scale = 1.0  # 화면 배율을 2배로 묶어 두었으므로(웹 시작 화면) 3D는 제 해상도로(중간 버퍼 없이 한 번에 그림)
 		Engine.max_physics_steps_per_frame = 3
 	# 웹(휴대폰 사파리): 화면 방향을 잠글 수 없으니 게임을 항상 가로로 돌려 그린다
 	if web or OS.get_environment("BBOPGI_ROTATE") == "1":
 		landscape_host = LandscapeHost.new()
 		landscape_host.name = "LandscapeHost"
-		add_child.call_deferred(landscape_host)
+		add_child(landscape_host)  # 게임 장면보다 먼저 만들어 두어야 장면이 그 안에 만들어진다
 	# 마우스가 없는 PC에서 시험할 때: 마우스로 터치를 흉내 낸다
 	if not phone and not DisplayServer.is_touchscreen_available():
 		Input.emulate_touch_from_mouse = true

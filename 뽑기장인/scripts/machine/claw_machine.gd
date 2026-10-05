@@ -88,6 +88,7 @@ var sink_left := 0.0
 var sway := Vector2.ZERO
 var sway_v := Vector2.ZERO
 var prev_carriage_vel := Vector3.ZERO
+var _idle_settled := false
 var btn1_used := false
 var btn2_used := false
 var btn1_down := false
@@ -138,22 +139,31 @@ var _far_t := 0.0
 
 
 func _batch_static() -> void:
-	RenderBatcher.merge_static(self, RenderBatcher.referenced_nodes(self))
+	var keep_mats := RenderBatcher.referenced_materials(self)
+	RenderBatcher.merge_static(self, RenderBatcher.referenced_nodes(self), keep_mats)
+	# 일본식 기계의 봉(다리)은 설정을 바꾸면 통째로 다시 만들므로, 그 안에서만 합친다
+	var br = get("bars_root")
+	if br is Node3D:
+		RenderBatcher.merge_static(br, {}, keep_mats)
 	RenderBatcher.hide_small_labels_far(self, 5.0)
+	# 멀리 있는 기계의 작은 부품(버튼·조이스틱·집게 등)은 휴대폰 화면에서 안 보일 만큼 작으니 그리지 않는다
+	RenderBatcher.hide_small_parts_far(self, prizes_root, 0.14, 6.5)
 
 
-## 멀리 있는 기계의 인형은 한 덩어리로 구워 그린다. 플레이·진열 중이거나 인형이 움직이면 바로 풀어 진짜 인형을 그린다
+## 쉬고 있는 기계의 인형은 가게 전체 묶음(PrizePool)으로 그린다. 플레이·진열 중이거나 인형이 움직이면 바로 빼서 진짜 인형을 그린다
 func _update_far(delta: float) -> void:
+	var pool := PrizePool.instance
+	if pool == null:
+		return
 	var busy := game_active or player_present or Game.owner_mode
 	# 플레이를 시작하면 바로(같은 프레임) 진짜 인형으로 되돌린다
-	if busy and _far:
-		RenderBatcher.unbake_far(prizes_root, _far)
-		_far = null
+	if busy and pool.has_machine(self):
+		pool.remove_machine(self, prizes_root)
 		_far_sig = -1
 	_far_t -= delta
 	if _far_t > 0.0:
 		return
-	_far_t = 1.0
+	_far_t = 0.5
 	var n := 0
 	if not busy:
 		for p in prizes_root.get_children():
@@ -165,15 +175,14 @@ func _update_far(delta: float) -> void:
 			if busy:
 				break
 	if busy:
-		if _far:
-			RenderBatcher.unbake_far(prizes_root, _far)
-			_far = null
+		if pool.has_machine(self):
+			pool.remove_machine(self, prizes_root)
 			_far_sig = -1
 		return
-	if _far == null or n != _far_sig:
-		if _far:
-			RenderBatcher.unbake_far(prizes_root, _far)
-		_far = RenderBatcher.bake_far(self, prizes_root, null, FAR_DIST)
+	if not pool.has_machine(self) or n != _far_sig:
+		if pool.has_machine(self):
+			pool.remove_machine(self, prizes_root)
+		pool.add_machine(self, prizes_root)
 		_far_sig = n
 
 
@@ -1278,6 +1287,14 @@ func _physics_process(delta: float) -> void:
 	if _bin_scan % 8 == 0 and bin_area:
 		for b in bin_area.get_overlapping_bodies():
 			_on_bin_body(b)
+	# 아무도 쓰지 않고 집게도 멈춰 있으면 집게 위치 계산을 건너뛴다(기계 23대 × 1초 120번이라 아낄수록 부드러워짐)
+	if state == State.IDLE and not player_present and credits == 0 and carriage_vel == Vector3.ZERO \
+			and sway.length_squared() < 4e-6 and sway_v.length_squared() < 4e-6 and _idle_settled:
+		return
+	_idle_settled = state == State.IDLE and sway.length_squared() < 4e-6 and sway_v.length_squared() < 4e-6
+	if _idle_settled and sway != Vector2.ZERO:
+		sway = Vector2.ZERO
+		sway_v = Vector2.ZERO
 	_move_carriage(want, speed, delta)
 	_update_sway(delta)
 	_place_claw_now()
