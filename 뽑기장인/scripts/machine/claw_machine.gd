@@ -270,7 +270,8 @@ func _build_backdrop(gh: float, white: Material) -> void:
 	bq.material_override = back
 	bq.position = Vector3(0, base_h + gh * 0.5, z_back - 0.001)
 	add_child(bq)
-	_box(Vector3(W, gh, 0.02), Vector3(0, base_h + gh * 0.5, -D * 0.5 + 0.01), white)
+	# 뒷판은 네 모서리 기둥 사이에 끼운다(기둥 뒷면과 같은 면이 겹쳐 깜빡이는 것 방지)
+	_box(Vector3(W - 0.092, gh, 0.02), Vector3(0, base_h + gh * 0.5, -D * 0.5 + 0.012), white)
 
 
 func _build_cabinet() -> void:

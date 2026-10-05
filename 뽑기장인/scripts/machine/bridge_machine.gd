@@ -67,7 +67,7 @@ func _build_cabinet() -> void:
 func _build_backdrop(gh: float, white: Material) -> void:
 	var hd := D * 0.5
 	var shelf_mat := _mat(Color(0.97, 0.97, 0.98), 0.25)
-	_box(Vector3(W, gh, 0.02), Vector3(0, base_h + gh * 0.5, -hd + 0.01), white)
+	_box(Vector3(W - 0.092, gh, 0.02), Vector3(0, base_h + gh * 0.5, -hd + 0.012), white)
 	# 투명 칸막이(상자는 앞쪽 구역에서만 움직인다)
 	var acr := StandardMaterial3D.new()
 	acr.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA

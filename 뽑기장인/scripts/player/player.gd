@@ -177,10 +177,11 @@ func _walk(delta: float) -> void:
 			Sfx.play("step%d" % _step_i, lerp(-16.0, -22.0, crouch), randf_range(0.9, 1.1))
 	else:
 		_bob = move_toward(_bob, 0.0, delta * 4.0)
-	var amp: float = lerp(0.018, 0.012, crouch) * _bob
-	head.position.y = eye + absf(sin(_phase * PI)) * amp * 1.6 - amp * 0.8 - _land_dip
-	head.position.x = cos(_phase * PI) * amp * lerp(0.6, 1.4, crouch)
-	head.rotation.z = -head.position.x * 0.6
+	# 걸을 때 좌우로 뒤뚱거리지 않게: 아주 작은 위아래 흔들림만
+	var amp: float = lerp(0.006, 0.004, crouch) * _bob
+	head.position.y = eye + sin(_phase * TAU) * amp - _land_dip
+	head.position.x = 0.0
+	head.rotation.z = 0.0
 
 
 func _ceiling_blocked() -> bool:

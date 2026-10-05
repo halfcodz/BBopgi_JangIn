@@ -82,4 +82,17 @@ func _initialize() -> void:
 	g.interact(player)
 	await process_frame
 	printerr("수집함=", main.get_node("/root/Game").collection.size())
+	# 음료 자판기: 가운데 단 첫 칸(라떼)을 사서 꺼내 마시기
+	var vm = null
+	for c in main.shop.get_children():
+		if c.has_method("_aimed_slot"): vm = c
+	vm.aim_override = 8
+	var w0 := int(main.get_node("/root/Game").wallet.get("1000", 0))
+	printerr("자판기 안내=", vm.interact_prompt())
+	vm.interact(player)
+	for k in 300:
+		await physics_frame
+	printerr("자판기 차감=", w0 - int(main.get_node("/root/Game").wallet.get("1000", 0)), " 꺼내는곳=", vm._in_port, " 안내=", vm.interact_prompt())
+	vm.interact(player)
+	printerr("마신 뒤=", vm._in_port)
 	quit()

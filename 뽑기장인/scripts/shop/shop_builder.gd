@@ -9,6 +9,12 @@ var hud
 const RX := 7.0   # 방 반너비(x)
 const RZ := 5.0   # 방 반깊이(z)
 const RH := 3.1   # 천장 높이
+# 개인 전시실(뒷벽 뒤 별도 방)
+const DOOR_X0 := 4.3
+const DOOR_X1 := 5.7
+const DOOR_H := 2.4
+const GX0 := 2.6
+const GZ1 := -10.2
 
 
 func _ready() -> void:
@@ -107,8 +113,11 @@ func _build_room() -> void:
 	ceil_mat.uv1_scale = Vector3(12, 10, 1)
 	ceil_mat.roughness = 0.7
 	var skirting := Build.glow(Color(1.0, 0.4, 0.85), 2.5)  # 바닥 둘레 네온 띠
+	# 뒷벽에는 전시실로 들어가는 문(DOOR_X0~DOOR_X1)이 뚫려 있다
 	var walls := [
-		[Vector3(RX * 2, RH, 0.2), Vector3(0, RH * 0.5, -RZ - 0.1)],
+		[Vector3(DOOR_X0 + RX, RH, 0.2), Vector3((-RX + DOOR_X0) * 0.5, RH * 0.5, -RZ - 0.1)],
+		[Vector3(RX - DOOR_X1, RH, 0.2), Vector3((DOOR_X1 + RX) * 0.5, RH * 0.5, -RZ - 0.1)],
+		[Vector3(DOOR_X1 - DOOR_X0, RH - DOOR_H, 0.2), Vector3((DOOR_X0 + DOOR_X1) * 0.5, (DOOR_H + RH) * 0.5, -RZ - 0.1)],
 		[Vector3(RX * 2, RH, 0.2), Vector3(0, RH * 0.5, RZ + 0.1)],
 		[Vector3(0.2, RH, RZ * 2), Vector3(-RX - 0.1, RH * 0.5, 0)],
 		[Vector3(0.2, RH, RZ * 2), Vector3(RX + 0.1, RH * 0.5, 0)],
@@ -123,7 +132,8 @@ func _build_room() -> void:
 	Build.box(self, Vector3(0.02, 0.03, RZ * 2 - 0.1), Vector3(-RX + 0.015, RH - 0.25, 0), wall_neon)
 	Build.box(self, Vector3(0.02, 0.03, RZ * 2 - 0.1), Vector3(RX - 0.015, RH - 0.25, 0), wall_neon)
 	# 걸레받이
-	Build.box(self, Vector3(RX * 2, 0.12, 0.02), Vector3(0, 0.06, -RZ + 0.01), skirting)
+	Build.box(self, Vector3(DOOR_X0 + RX, 0.12, 0.02), Vector3((-RX + DOOR_X0) * 0.5, 0.06, -RZ + 0.01), skirting)
+	Build.box(self, Vector3(RX - DOOR_X1, 0.12, 0.02), Vector3((DOOR_X1 + RX) * 0.5, 0.06, -RZ + 0.01), skirting)
 	Build.box(self, Vector3(RX * 2, 0.12, 0.02), Vector3(0, 0.06, RZ - 0.01), skirting)
 	Build.box(self, Vector3(0.02, 0.12, RZ * 2), Vector3(-RX + 0.01, 0.06, 0), skirting)
 	Build.box(self, Vector3(0.02, 0.12, RZ * 2), Vector3(RX - 0.01, 0.06, 0), skirting)
@@ -260,36 +270,94 @@ func _build_side_props() -> void:
 	Build.box(self, Vector3(0.46, 0.02, 0.96), Vector3(RX - 0.25, 1.77, 0.83), Build.mat(Color(1, 1, 1), 0.3))
 	Build.text(self, "캡슐뽑기", Vector3(RX - 0.02, 2.05, 0.83), 90, 0.0018, Color(1.0, 0.95, 0.6), Color(0.9, 0.4, 0.1), "res://assets/fonts/BlackHanSans-Regular.ttf").rotation.y = -PI / 2
 	Build.blocker(self, Vector3(0.6, 1.8, 1.0), Vector3(RX - 0.25, 0.9, 0.83))
-	# 음료 자판기(장식)
-	var vm := Node3D.new()
+	# 음료 자판기(실제 모양, 1,000원에 음료를 사 마실 수 있다)
+	var vm := VendingMachine.new()
 	vm.position = Vector3(RX - 0.4, 0, 3.6)
 	vm.rotation.y = -PI / 2
 	add_child(vm)
-	Build.box(vm, Vector3(0.9, 1.85, 0.7), Vector3(0, 0.925, 0), Build.mat(Color(0.9, 0.15, 0.2), 0.35, 0.2))
-	Build.box(vm, Vector3(0.6, 1.1, 0.02), Vector3(-0.08, 1.15, 0.351), Build.glow(Color(0.85, 0.95, 1.0), 0.8))
-	for r in 4:
-		for c in 5:
-			var can := Build.cyl(vm, 0.035, 0.12, Vector3(-0.32 + c * 0.12, 0.7 + r * 0.26, 0.33), Build.mat(Color.from_hsv(randf(), 0.6, 0.95), 0.3, 0.6))
-	Build.text(vm, "시원한 음료", Vector3(0, 1.78, 0.36), 50, 0.0012, Color(1, 1, 1))
-	Build.box(vm, Vector3(0.12, 0.4, 0.02), Vector3(0.33, 1.15, 0.352), Build.mat(Color(0.15, 0.15, 0.18), 0.4))
-	Build.blocker(vm, Vector3(0.9, 1.9, 0.7), Vector3(0, 0.95, 0))
 
 
 # ------------------------------------------------------------------ 전시장
 func _build_showcase() -> void:
+	_build_gallery_room()
 	showcase = Showcase.new()
 	showcase.name = "Showcase"
 	showcase.position = Vector3(0, 0, 0)
+	var gz := GZ1 + 0.25
 	showcase.setup([
-		[Vector3(3.6, 0, -RZ + 0.25), 0.0, "big"],
-		[Vector3(4.85, 0, -RZ + 0.25), 0.0, "big"],
-		[Vector3(RX - 0.25, 0, -2.6), -PI / 2, "small"],
+		[Vector3(3.55, 0, gz), 0.0, "big"],
+		[Vector3(4.8, 0, gz), 0.0, "big"],
+		[Vector3(6.05, 0, gz), 0.0, "big"],
+		[Vector3(GX0 + 0.25, 0, -8.7), PI / 2, "small"],
+		[Vector3(GX0 + 0.25, 0, -7.35), PI / 2, "big"],
+		[Vector3(RX - 0.25, 0, -8.7), -PI / 2, "small"],
 	])
 	add_child(showcase)
-	showcase.build_board(Vector3(RX - 0.03, 1.45, -1.2), -PI / 2)
-	# 전시장 바닥 러그 & 차단 줄 느낌의 낮은 경계
-	var rug := Build.box(self, Vector3(3.6, 0.008, 2.6), Vector3(4.6, 0.004, -3.4), Build.mat(Color(0.98, 0.82, 0.88), 0.95))
-	rug.name = "ShowcaseRug"
+	showcase.build_board(Vector3(RX - 0.03, 1.45, -6.6), -PI / 2)
+
+
+## 개인 전시실: 가게 뒷벽 문을 지나 들어가는 조용한 방(따뜻한 조명, 카펫, 진열장)
+func _build_gallery_room() -> void:
+	var w := RX - GX0
+	var d := -RZ - GZ1
+	var cx := (GX0 + RX) * 0.5
+	var cz := (-RZ + GZ1) * 0.5
+	# 바닥(분홍 카펫) + 충돌
+	var carpet := Build.mat(Color(0.86, 0.66, 0.78), 0.95)
+	var fl := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(w, d)
+	fl.mesh = pm
+	fl.material_override = carpet
+	fl.position = Vector3(cx, 0.001, cz)
+	add_child(fl)
+	var fb := StaticBody3D.new()
+	fb.collision_layer = 1 | 8
+	var fcs := CollisionShape3D.new()
+	var fbs := BoxShape3D.new()
+	fbs.size = Vector3(w + 0.4, 0.2, d + 0.4)
+	fcs.shape = fbs
+	fb.add_child(fcs)
+	fb.position = Vector3(cx, -0.1, cz)
+	add_child(fb)
+	# 벽·천장
+	var wall := Build.mat(Color(0.97, 0.93, 0.95), 0.7)
+	Build.box(self, Vector3(0.2, RH, d + 0.2), Vector3(GX0 - 0.1, RH * 0.5, cz), wall, 1 | 8)
+	Build.box(self, Vector3(0.2, RH, d + 0.2), Vector3(RX + 0.1, RH * 0.5, cz), wall, 1 | 8)
+	Build.box(self, Vector3(w + 0.4, RH, 0.2), Vector3(cx, RH * 0.5, GZ1 - 0.1), wall, 1 | 8)
+	Build.box(self, Vector3(w + 0.4, 0.02, d), Vector3(cx, RH + 0.01, cz), Build.mat(Color(0.95, 0.92, 0.94), 0.8))
+	# 문틀(금색) + 걸레받이
+	var gold := Build.mat(Color(0.95, 0.78, 0.4), 0.25, 0.9)
+	for x in [DOOR_X0, DOOR_X1]:
+		Build.box(self, Vector3(0.06, DOOR_H, 0.24), Vector3(x, DOOR_H * 0.5, -RZ - 0.1), gold)
+	Build.box(self, Vector3(DOOR_X1 - DOOR_X0 + 0.06, 0.06, 0.24), Vector3((DOOR_X0 + DOOR_X1) * 0.5, DOOR_H, -RZ - 0.1), gold)
+	var base_trim := Build.mat(Color(0.75, 0.55, 0.65), 0.5)
+	Build.box(self, Vector3(0.02, 0.1, d), Vector3(GX0 + 0.01, 0.05, cz), base_trim)
+	Build.box(self, Vector3(0.02, 0.1, d), Vector3(RX - 0.01, 0.05, cz), base_trim)
+	Build.box(self, Vector3(w, 0.1, 0.02), Vector3(cx, 0.05, GZ1 + 0.01), base_trim)
+	# 따뜻한 조명: 천장 원형 등 + 간접 조명 띠
+	for x in [GX0 + w * 0.3, GX0 + w * 0.7]:
+		for z in [cz - d * 0.25, cz + d * 0.25]:
+			Build.cyl(self, 0.22, 0.03, Vector3(x, RH - 0.015, z), Build.glow(Color(1.0, 0.95, 0.85), 2.5))
+			var l := OmniLight3D.new()
+			l.position = Vector3(x, RH - 0.35, z)
+			l.omni_range = 4.0
+			l.light_energy = 0.7
+			l.light_color = Color(1.0, 0.92, 0.82)
+			add_child(l)
+	var cove := Build.glow(Color(1.0, 0.75, 0.9), 2.0)
+	Build.box(self, Vector3(w - 0.1, 0.02, 0.02), Vector3(cx, RH - 0.06, GZ1 + 0.02), cove)
+	Build.box(self, Vector3(0.02, 0.02, d - 0.1), Vector3(GX0 + 0.02, RH - 0.06, cz), cove)
+	Build.box(self, Vector3(0.02, 0.02, d - 0.1), Vector3(RX - 0.02, RH - 0.06, cz), cove)
+	# 가운데 원형 러그 + 의자
+	Build.decor(self, "rugRound", Vector3(cx, 0.004, cz + 0.5), 2.6)
+	Build.decor(self, "stoolBar", Vector3(cx - 0.5, 0, cz + 0.6), 1.4)
+	Build.decor(self, "stoolBar", Vector3(cx + 0.5, 0, cz + 0.6), 1.4)
+	Build.decor(self, "pottedPlant", Vector3(RX - 0.35, 0, -RZ - 0.4), 1.8)
+	# 문 위 네온 간판(가게 쪽) + 안내
+	var sign := Build.text(self, "♥ 나의 전시실 ♥", Vector3((DOOR_X0 + DOOR_X1) * 0.5, 2.65, -RZ + 0.03), 90, 0.0016, Color(1.0, 0.92, 0.98), Color(1.0, 0.35, 0.75), "res://assets/fonts/BlackHanSans-Regular.ttf")
+	sign.outline_size = 24
+	sign.shaded = false
 
 
 # ------------------------------------------------------------------ 카운터

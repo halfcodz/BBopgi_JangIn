@@ -183,9 +183,9 @@ func _prong_profile() -> PackedVector2Array:
 			Vector2(0.017, -0.013) * s,
 			Vector2(0.064, -0.078) * s,
 			Vector2(0.042, -0.112) * s,
-			Vector2(-0.01, -0.158) * s,
-			Vector2(-0.03, -0.176) * s,
-			Vector2(-0.044, -0.183) * s,
+			Vector2(-0.01, -0.175) * s,   # 아래로 내려오는 부분을 조금 더 길게
+			Vector2(-0.03, -0.193) * s,
+			Vector2(-0.044, -0.2) * s,
 		])
 	return PackedVector2Array([
 		Vector2(0.0, 0.004) * s,

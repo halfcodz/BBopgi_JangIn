@@ -35,9 +35,10 @@ func _build_cabinet(pos: Vector3, rot_y: float, kind: String) -> void:
 	var frame := Build.mat(Color(0.97, 0.96, 0.95), 0.35)
 	var wood := Build.mat(Color(0.45, 0.3, 0.2), 0.6)
 	var back := Build.mat(Color(1.0, 0.86, 0.9), 0.8)
-	Build.box(cab, Vector3(W, 0.18, D), Vector3(0, 0.09, 0), wood)
-	Build.box(cab, Vector3(W, 0.06, D), Vector3(0, H - 0.03, 0), frame)
-	Build.box(cab, Vector3(W, H, 0.02), Vector3(0, H * 0.5, -D * 0.5 + 0.01), back)
+	# 받침·윗판·뒷판은 양옆 판 사이에 끼운다(같은 면이 겹쳐 아래쪽이 깜빡이던 문제)
+	Build.box(cab, Vector3(W - 0.06, 0.18, D - 0.004), Vector3(0, 0.09, 0.0), wood)
+	Build.box(cab, Vector3(W - 0.06, 0.06, D - 0.004), Vector3(0, H - 0.03, 0), frame)
+	Build.box(cab, Vector3(W - 0.06, H - 0.24, 0.02), Vector3(0, 0.18 + (H - 0.24) * 0.5, -D * 0.5 + 0.012), back)
 	for sx in [-1.0, 1.0]:
 		Build.box(cab, Vector3(0.03, H, D), Vector3(sx * (W * 0.5 - 0.015), H * 0.5, 0), frame)
 	Build.box(cab, Vector3(W - 0.06, H - 0.24, 0.006), Vector3(0, 0.18 + (H - 0.24) * 0.5, D * 0.5 - 0.004), Build.glass())

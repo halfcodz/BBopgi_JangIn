@@ -15,6 +15,10 @@ func _initialize() -> void:
 		["goods", Vector3(-2.5, 0.05, 0.6), 0.0, -0.22],
 		["small", Vector3(-4.6, 0.05, -2.4), 1.4, -0.12],
 		["showcase", Vector3(4.0, 0.05, -1.4), -0.1, 0.0],
+		["gallery", Vector3(5.0, 0.05, -5.4), 0.0, -0.08],
+		["gallery_back", Vector3(4.8, 0.05, -9.5), PI, -0.05],
+		["vending", Vector3(4.7, 0.05, 3.6), -PI / 2, -0.2],
+		["vending_close", Vector3(5.85, 0.05, 3.35), -PI / 2, -0.3],
 		["center", Vector3(2.4, 0.05, 3.6), 0.0, -0.12],
 		["bridge", Vector3(-3.6, 0.05, 1.9), PI / 2, -0.12],
 	]
