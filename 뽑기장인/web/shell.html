@@ -2521,6 +2521,7 @@ var qrcode = function() {
 		<script>
 const GODOT_CONFIG = $GODOT_CONFIG;
 const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+const CACHE_TAG = JSON.stringify(GODOT_CONFIG.fileSizes || {}); // 배포할 때마다 바뀌는 값(파일 크기)
 
 (function () {
 	const ua = navigator.userAgent;
@@ -2562,6 +2563,40 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 	}
 
 	const engine = new Engine(GODOT_CONFIG);
+
+	// 새로 배포된 버전이 있으면 바로 바꿔 끼우고 한 번 새로고침(저장된 옛 파일로 계속 실행되지 않게)
+	if ('serviceWorker' in navigator) {
+		navigator.serviceWorker.getRegistration().then((reg) => {
+			if (!reg) {
+				return;
+			}
+			const swap = (w) => {
+				if (sessionStorage.getItem('bb_swapped') === CACHE_TAG) {
+					return;
+				}
+				sessionStorage.setItem('bb_swapped', CACHE_TAG);
+				$('tip').textContent = '새 버전으로 바꾸는 중…';
+				navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+				w.postMessage('claim');
+				setTimeout(() => location.reload(), 2500);
+			};
+			const watch = (w) => {
+				if (!w) {
+					return;
+				}
+				if (w.state === 'installed') {
+					swap(w);
+				} else {
+					w.addEventListener('statechange', () => { if (w.state === 'installed') swap(w); });
+				}
+			};
+			if (reg.waiting) {
+				watch(reg.waiting);
+			}
+			reg.addEventListener('updatefound', () => watch(reg.installing));
+			reg.update().catch(() => {});
+		}).catch(() => {});
+	}
 
 	function fail(err) {
 		console.error(err);
