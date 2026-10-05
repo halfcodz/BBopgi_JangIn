@@ -305,6 +305,27 @@ const ITEMS := {
 		"texture": "res://assets/textures/prizes/gift_lamp.png",
 		"colorways": [[Color(1, 1, 1)]],
 	},
+	# ---------------------------------------------------------------- 큰 머리 마스코트 인형
+	"chibi_cat": {
+		"name": "몽글 냥이 마스코트", "model": "chibi_cat", "size_class": "big",
+		"scale": 1.0, "mass": 0.22, "cost": 5500, "friction": 0.95,
+		"colorways": [
+			[Color(0.8, 0.7, 1.0), Color(1.0, 0.96, 0.92), Color(1.0, 0.62, 0.78)],
+			[Color(1.0, 0.78, 0.88), Color(1.0, 0.97, 0.96), Color(1.0, 0.5, 0.7)],
+			[Color(0.97, 0.97, 0.98), Color(1.0, 0.92, 0.86), Color(1.0, 0.62, 0.74)],
+			[Color(0.7, 0.92, 0.86), Color(1.0, 0.97, 0.92), Color(1.0, 0.62, 0.74)],
+		],
+	},
+	"chibi_bunny": {
+		"name": "몽글 토끼 마스코트", "model": "chibi_bunny", "size_class": "big", "fabric": "velboa",
+		"scale": 1.0, "mass": 0.22, "cost": 5500, "friction": 0.95,
+		"colorways": [
+			[Color(0.98, 0.97, 0.98), Color(1.0, 0.92, 0.94), Color(1.0, 0.6, 0.75)],
+			[Color(1.0, 0.76, 0.88), Color(1.0, 0.96, 0.97), Color(0.95, 0.45, 0.65)],
+			[Color(0.76, 0.66, 0.98), Color(0.98, 0.95, 1.0), Color(1.0, 0.62, 0.8)],
+			[Color(0.68, 0.84, 1.0), Color(0.97, 0.98, 1.0), Color(1.0, 0.62, 0.75)],
+		],
+	},
 }
 
 

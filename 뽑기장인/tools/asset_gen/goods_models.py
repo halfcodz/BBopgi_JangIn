@@ -258,3 +258,98 @@ def _gadget(model_id):
 
 for _gid in GADGET_SIZES:
     MODELS[_gid] = _gadget(_gid)
+
+
+# ======================================================================== 큰 머리 마스코트 인형(요즘 뽑기방 스타일)
+from plush_models import cap_shape, joint, sph_shape, rot_z, sdf_blob_mesh  # noqa: E402
+from sdf import round_cone, union  # noqa: E402
+
+
+def _chibi(model_id, ear_kind):
+    """머리가 몸보다 훨씬 큰 마스코트 인형. ear_kind: 'cat'(세모 귀) / 'bunny'(늘어진 긴 귀)"""
+    body_c = np.array([0, 0.052, 0])
+    head_c = np.array([0, 0.145, 0.004])
+
+    def body(p):
+        d = ellipsoid(p, body_c, (0.048, 0.05, 0.042))
+        return smax(d, -(p[:, 1] - 0.004), 0.012)
+
+    def body_mask(p, n):
+        belly = 1 - _sm(ellipsoid(p, body_c + [0, -0.004, 0.03], (0.03, 0.034, 0.02)), -0.002, 0.004)
+        return np.stack([belly, np.zeros(len(p))], -1)
+
+    def head(p):
+        d = ellipsoid(p, head_c, (0.088, 0.072, 0.07))
+        d = smin(d, ellipsoid(p, head_c + [0, -0.02, 0.03], (0.07, 0.045, 0.045)), 0.02)  # 볼살
+        if ear_kind == "cat":
+            for sx in (1, -1):
+                ear = round_cone(p, head_c + [0.05 * sx, 0.045, -0.004], head_c + [0.068 * sx, 0.09, -0.008], 0.026, 0.006)
+                d = smin(d, ear, 0.012)
+        return d
+
+    def head_mask(p, n):
+        q = p - head_c
+        muzzle = 1 - _sm(ellipsoid(p, head_c + [0, -0.03, 0.062], (0.03, 0.02, 0.02)), -0.002, 0.004)
+        blush = np.zeros(len(p))
+        for sx in (1, -1):
+            blush = np.maximum(blush, 1 - _sm(length(p - (head_c + [0.052 * sx, -0.026, 0.05])), 0.009, 0.016))
+        inner = np.zeros(len(p))
+        if ear_kind == "cat":
+            for sx in (1, -1):
+                ie = round_cone(p - [0, 0, 0.006], head_c + [0.052 * sx, 0.05, 0.0], head_c + [0.066 * sx, 0.083, -0.003], 0.016, 0.004)
+                inner = np.maximum(inner, (1 - _sm(ie, -0.001, 0.003)) * _sm(n[:, 2], 0.2, 0.6))
+        return np.stack([muzzle * 0.9, np.maximum(blush * 0.85, inner)], -1)
+
+    neck = np.array([0, 0.092, 0.0])
+    hp = Part("head", head, (head_c - [0.11, 0.09, 0.09], head_c + [0.11, 0.11, 0.1]), neck, 0.07,
+              [sph_shape(head_c - neck, 0.066), sph_shape(head_c + [0, -0.02, 0.03] - neck, 0.044)], head_mask, faces=10000)
+    acc = eyes_on(head, head_c + [0, -0.012, 0], [(0.45, -0.05, 0.89), (-0.45, -0.05, 0.89)], 0.0085)
+    m0, _ = surface_point(head, head_c + [0, -0.03, 0.03], (0, -0.1, 1))
+    acc.append(thread_curve(head, [m0 + [-0.007, 0.002, 0], m0 + [-0.0035, -0.002, 0], m0, m0 + [0.0035, -0.002, 0], m0 + [0.007, 0.002, 0]], "mouth", radius=0.0009, samples=14))
+    nose_p, nn = surface_point(head, head_c + [0, -0.022, 0.03], (0, 0.05, 1))
+    acc.append(sdf_blob_mesh("nose", lambda p: ellipsoid(p, nose_p + nn * 0.001, (0.0045, 0.0032, 0.003)), nose_p, 0.008, (0.95, 0.5, 0.6), "thread", faces=300))
+    # 머리 리본(세 번째 색)
+    bow_c = head_c + np.array([0.05, 0.062, 0.02])
+    acc.append(sdf_blob_mesh("bow", lambda p: union(ellipsoid(p, bow_c + [0.012, 0, 0], (0.013, 0.009, 0.005)),
+                                                     ellipsoid(p, bow_c - [0.012, 0, 0], (0.013, 0.009, 0.005)),
+                                                     sphere(p, bow_c, 0.005)), bow_c, 0.03, (1.0, 0.45, 0.65), "plastic", faces=900))
+    hp.accessories = acc
+    bp = Part("body", body, (body_c - [0.07, 0.07, 0.07], body_c + [0.07, 0.07, 0.07]), body_c, 0.06,
+              [sph_shape([0, 0, 0], 0.046)], body_mask, faces=5000)
+    parts = [bp, hp]
+    joints = [joint("body", "head", neck, swing=22, twist=25, stiffness=1.0, damping=0.08)]
+    for side in (1, -1):
+        sfx = "r" if side > 0 else "l"
+        sh = np.array([0.04 * side, 0.07, 0.012])
+        paw = np.array([0.06 * side, 0.04, 0.035])
+        ap = Part("arm_" + sfx, (lambda p, sh=sh, paw=paw: round_cone(p, sh, paw, 0.014, 0.016)),
+                  (np.minimum(sh, paw) - 0.025, np.maximum(sh, paw) + 0.025), sh, 0.01,
+                  [cap_shape((paw - sh) * 0.15, paw - sh, 0.015)], None, faces=1600)
+        parts.append(ap)
+        joints.append(joint("body", "arm_" + sfx, sh, swing=50, twist=20, stiffness=0.4))
+        hip = np.array([0.026 * side, 0.02, 0.016])
+        foot = np.array([0.03 * side, 0.016, 0.05])
+        lp = Part("leg_" + sfx, (lambda p, hip=hip, foot=foot: round_cone(p, hip, foot, 0.017, 0.019)),
+                  (np.minimum(hip, foot) - 0.025, np.maximum(hip, foot) + 0.025), hip, 0.012,
+                  [cap_shape((foot - hip) * 0.15, foot - hip, 0.018)], None, faces=1600)
+        parts.append(lp)
+        joints.append(joint("body", "leg_" + sfx, hip, swing=35, twist=15, stiffness=0.5))
+        if ear_kind == "bunny":
+            base = head_c + np.array([0.045 * side, 0.055, -0.01])
+            tip = head_c + np.array([0.1 * side, -0.02, -0.02])
+
+            def ear(p, base=base, tip=tip):
+                return round_cone(p, base, tip, 0.016, 0.022)
+
+            def ear_mask(p, n, base=base, tip=tip):
+                inner = round_cone(p - [0, 0, 0.007], base, tip, 0.008, 0.013)
+                return np.stack([np.zeros(len(p)), (1 - _sm(inner, -0.001, 0.003)) * _sm(n[:, 2], 0.2, 0.6)], -1)
+            ep = Part("ear_" + sfx, ear, (np.minimum(base, tip) - 0.03, np.maximum(base, tip) + 0.03), base, 0.008,
+                      [cap_shape([0, 0, 0], tip - base, 0.018)], ear_mask, faces=2000)
+            parts.append(ep)
+            joints.append(joint("head", "ear_" + sfx, base, swing=45, twist=15, stiffness=0.3))
+    return {"id": model_id, "parts": parts, "joints": joints, "fabric": "minky", "height": 0.24}
+
+
+MODELS["chibi_cat"] = lambda: _chibi("chibi_cat", "cat")
+MODELS["chibi_bunny"] = lambda: _chibi("chibi_bunny", "bunny")

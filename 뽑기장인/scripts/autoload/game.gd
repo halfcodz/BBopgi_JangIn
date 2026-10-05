@@ -147,6 +147,9 @@ func default_settings(kind: String) -> Dictionary:
 	}
 
 
+const PRESET_REV := 2
+
+
 func get_settings(machine_id: String, kind: String, preset: Dictionary = {}) -> Dictionary:
 	if not machine_settings.has(machine_id):
 		var d := default_settings(kind)
@@ -171,6 +174,13 @@ func get_settings(machine_id: String, kind: String, preset: Dictionary = {}) -> 
 			machine_prizes.erase(machine_id)
 	if kind == "bridge":
 		machine_settings[machine_id]["_rev"] = 6
+	# 가게 구성(상품 목록·이름)이 새 버전으로 바뀌면 한 번 반영한다
+	var ms: Dictionary = machine_settings[machine_id]
+	if int(ms.get("_pz", 0)) < PRESET_REV:
+		for k in ["prize_ids", "name"]:
+			if preset.has(k):
+				ms[k] = preset[k]
+		ms["_pz"] = PRESET_REV
 	return machine_settings[machine_id]
 
 

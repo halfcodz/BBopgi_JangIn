@@ -191,9 +191,9 @@ func _add_machine(id: String, kind: String, pos: Vector3, rot_y: float, color: C
 func _build_machines() -> void:
 	# 뒷벽: 큰 인형 기계 + 전자기기 경품 기계
 	var bz := -RZ + 0.52
-	_add_machine("big_1", "big", Vector3(-5.6, 0, bz), 0, Color(1.0, 0.55, 0.82), {"name": "왕인형 뽑기", "prize_ids": ["bear", "bunny", "penguin", "dino", "cat", "panda", "shiba", "shark", "frog"]}, 30)
+	_add_machine("big_1", "big", Vector3(-5.6, 0, bz), 0, Color(1.0, 0.55, 0.82), {"name": "왕인형 뽑기", "prize_ids": ["bear", "bunny", "penguin", "dino", "cat", "panda", "shiba", "chibi_cat", "chibi_bunny"]}, 30)
 	_add_machine("big_2", "big", Vector3(-4.4, 0, bz), 0, Color(0.74, 0.58, 1.0), {"name": "바다·공룡 친구들", "prize_ids": ["dino", "penguin", "shark", "frog"]}, 26)
-	_add_machine("big_3", "big", Vector3(-3.2, 0, bz), 0, Color(0.98, 0.7, 0.9), {"name": "멍냥·판다 하우스", "prize_ids": ["shiba", "panda", "bunny", "cat"], "payout_mode": "revenue"}, 26)
+	_add_machine("big_3", "big", Vector3(-3.2, 0, bz), 0, Color(0.98, 0.7, 0.9), {"name": "멍냥·판다 하우스", "prize_ids": ["shiba", "panda", "chibi_cat", "cat"], "payout_mode": "revenue"}, 26)
 	_add_machine("big_4", "big", Vector3(-2.0, 0, bz), 0, Color(0.55, 0.78, 1.0), {"name": "피규어 박스", "prize_ids": ["figure_box", "bear"], "power_grab": 85, "power_top": 40}, 20)
 	_add_machine("big_5", "big", Vector3(-0.8, 0, bz), 0, Color(0.6, 0.92, 0.85), {"name": "경품 대잔치", "prize_ids": ["gift_earbuds", "gift_powerbank", "gift_fan", "gift_lamp"], "power_grab": 85, "power_lift": 75, "power_top": 35}, 20)
 	_add_machine("big_6", "big", Vector3(0.4, 0, bz), 0, Color(0.88, 0.5, 0.95), {"name": "스피커·무드등", "prize_ids": ["gift_speaker", "gift_lamp", "gift_earbuds"], "power_grab": 90, "power_lift": 80, "power_top": 40}, 16)
@@ -222,8 +222,8 @@ func _build_machines() -> void:
 	# 가운데 섬 2: 경품·인형 큰 기계
 	var cz := 1.3
 	_add_machine("big_7", "big", Vector3(1.2, 0, cz), 0, Color(0.98, 0.7, 0.9), {"name": "이어폰·배터리", "prize_ids": ["gift_earbuds", "gift_powerbank"], "power_grab": 85, "power_lift": 75, "power_top": 35}, 16)
-	_add_machine("big_8", "big", Vector3(2.4, 0, cz), 0, Color(0.55, 0.78, 1.0), {"name": "인형+경품 믹스", "prize_ids": ["bear", "bunny", "gift_fan", "gift_lamp", "cat"]}, 23)
-	_add_machine("big_9", "big", Vector3(3.6, 0, cz), 0, Color(0.6, 0.92, 0.85), {"name": "개굴·상어 파티", "prize_ids": ["frog", "shark", "penguin"]}, 26)
+	_add_machine("big_8", "big", Vector3(2.4, 0, cz), 0, Color(0.55, 0.78, 1.0), {"name": "인형+경품 믹스", "prize_ids": ["chibi_bunny", "bunny", "gift_fan", "gift_lamp", "chibi_cat"]}, 23)
+	_add_machine("big_9", "big", Vector3(3.6, 0, cz), 0, Color(0.6, 0.92, 0.85), {"name": "몽글몽글 마스코트", "prize_ids": ["chibi_cat", "chibi_bunny"]}, 26)
 	# 일본식 UFO 피규어 존: 두 칸짜리 기계 2쌍(실제 매장처럼 나란히 붙여 둔다)
 	var bx := -RX + 0.62
 	var jp := [
