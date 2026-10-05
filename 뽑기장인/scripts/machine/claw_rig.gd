@@ -570,7 +570,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _apply_motor() -> void:
-	var dt := 1.0 / Engine.physics_ticks_per_second
+	var dt := Game.phys_dt()
 	for hj in hinges:
 		if closing:
 			hj.set_param(HingeJoint3D.PARAM_MOTOR_TARGET_VELOCITY, 4.0)

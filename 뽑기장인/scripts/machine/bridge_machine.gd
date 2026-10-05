@@ -381,11 +381,23 @@ func _place_on_bars(id: String, x: float, rng: RandomNumberGenerator) -> Prize:
 	return p
 
 
+var _returns_t := 0
+var _returns_n := 0
+
+
 func _return_to_bed(p: Prize) -> void:
-	if not is_instance_valid(p):
+	if not is_instance_valid(p) or p.is_queued_for_deletion():
 		return
 	var id := p.prize_id
 	p.queue_free()
+	# 안전장치: 되돌린 상자가 곧바로 또 떨어지는 일이 반복되면(1초에 3번 넘게) 멈춘다
+	var now := Time.get_ticks_msec()
+	if now - _returns_t > 1000:
+		_returns_t = now
+		_returns_n = 0
+	_returns_n += 1
+	if _returns_n > 3:
+		return
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	_place_on_bars(id, 0.0, rng)

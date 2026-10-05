@@ -23,6 +23,10 @@ var spent_since_last_win := 0
 var bgm_volume := 0.6
 var sfx_volume := 0.9
 var mouse_sensitivity := 0.0022
+## 게임 속도(1.0 = 보통, 2.0 = 두 배). 물리 계산 간격은 그대로 두고 1초에 계산하는 횟수를 늘려 똑같이 정확하게 빨라진다
+var game_speed := 1.0
+const BASE_TICKS := 120
+var landscape_host: Node
 ## 터치(아이폰·아이패드 등) 조작 모드. PC에서 시험하려면 실행 인자 -- --touch
 var touch := false
 ## 실제 휴대폰인가(시험용: 환경변수 BBOPGI_PHONE=1 이면 PC에서도 휴대폰처럼)
@@ -75,9 +79,28 @@ func _setup_mobile() -> void:
 		# 휴대폰 웹(사파리): 그래픽 처리 여유가 적으므로 3D 해상도를 더 낮추고, 느려지면 물리를 늦춰 버틴다
 		win.scaling_3d_scale = 0.62
 		Engine.max_physics_steps_per_frame = 3
+	# 웹(휴대폰 사파리): 화면 방향을 잠글 수 없으니 게임을 항상 가로로 돌려 그린다
+	if web or OS.get_environment("BBOPGI_ROTATE") == "1":
+		landscape_host = LandscapeHost.new()
+		landscape_host.name = "LandscapeHost"
+		add_child.call_deferred(landscape_host)
 	# 마우스가 없는 PC에서 시험할 때: 마우스로 터치를 흉내 낸다
 	if not phone and not DisplayServer.is_touchscreen_available():
 		Input.emulate_touch_from_mouse = true
+
+
+## 게임 속도 바꾸기: 시간 배율과 1초당 물리 계산 횟수를 같이 올려 한 번 계산하는 간격(1/120초)은 그대로 유지
+func set_game_speed(s: float) -> void:
+	game_speed = clampf(snappedf(s, 0.1), 1.0, 2.0)
+	Engine.time_scale = game_speed
+	Engine.physics_ticks_per_second = int(round(BASE_TICKS * game_speed))
+	var base_steps := 3 if web else (4 if phone else 12)
+	Engine.max_physics_steps_per_frame = int(ceil(base_steps * game_speed))
+
+
+## 물리 한 번 계산하는 시간(초) – 게임 속도와 상관없이 1/120
+func phys_dt() -> float:
+	return Engine.time_scale / float(Engine.physics_ticks_per_second)
 
 
 ## 마우스 커서 잡기/풀기(터치 기기에는 마우스가 없으므로 건드리지 않는다)
@@ -126,6 +149,7 @@ func _register_inputs() -> void:
 	_add_key("collection", [KEY_I])
 	_add_key("help", [KEY_H])
 	_add_key("button2", [KEY_X])
+	_add_key("insert_10000", [KEY_M])
 	_add_mouse("place_click", MOUSE_BUTTON_LEFT)
 	_add_mouse("remove_click", MOUSE_BUTTON_RIGHT)
 
@@ -284,7 +308,7 @@ func save_game() -> void:
 		"wallet": wallet, "collection": collection, "machine_settings": machine_settings,
 		"ledgers": ledgers, "stats": stats, "spent_since_last_win": spent_since_last_win,
 		"bgm_volume": bgm_volume, "sfx_volume": sfx_volume, "mouse_sensitivity": mouse_sensitivity,
-		"machine_prizes": machine_prizes,
+		"machine_prizes": machine_prizes, "game_speed": game_speed,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
@@ -314,6 +338,7 @@ func load_game() -> void:
 	sfx_volume = float(data.get("sfx_volume", sfx_volume))
 	mouse_sensitivity = float(data.get("mouse_sensitivity", mouse_sensitivity))
 	machine_prizes = data.get("machine_prizes", {})
+	set_game_speed(float(data.get("game_speed", 1.0)))
 
 
 func reset_all() -> void:

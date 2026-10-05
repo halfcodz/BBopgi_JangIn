@@ -188,8 +188,8 @@ func _ready() -> void:
 		bridge_guide.anchor_bottom = 0.0
 		bridge_guide.offset_left = 16
 		bridge_guide.offset_right = 296
-		bridge_guide.offset_top = 150
-		bridge_guide.offset_bottom = 430
+		bridge_guide.offset_top = 232  # 내 지갑 아래(겹치지 않게)
+		bridge_guide.offset_bottom = 512
 		bridge_guide.grow_horizontal = Control.GROW_DIRECTION_END
 		bridge_guide.grow_vertical = Control.GROW_DIRECTION_END
 		bridge_guide.scale = Vector2(0.86, 0.86)
@@ -268,7 +268,7 @@ func _on_focus(target) -> void:
 		var extra := ""
 		if not m.prizes_in_bin().is_empty():
 			extra = "  (배출구에 상품 있음!)"
-		prompt.text = _keys("[E] %s 하기 · %s%s" % [m.settings.get("name", "인형뽑기"), m.price_text().replace("\n", " / "), extra])
+		prompt.text = _keys("[E] %s 하기 · %s%s" % [m.settings.get("name", "인형뽑기"), m.price_text_full().replace("\n", " / "), extra])
 	elif target.has_method("interact_prompt"):
 		prompt.text = _keys(target.interact_prompt())
 
@@ -287,7 +287,8 @@ func _process(_delta: float) -> void:
 	if player and player.mode == Player.Mode.MACHINE and player.machine:
 		var m: ClawMachine = player.machine
 		mp_name.text = String(m.settings.get("name", "인형뽑기"))
-		mp_info.text = m.price_text().replace("\n", " · ")
+		# 휴대폰은 조작 안내 칸이 좁으므로 기본 가격만(지폐별 횟수는 지폐 버튼을 고를 때 안내)
+		mp_info.text = m.price_text().split("\n")[0] if Game.touch else m.price_text_full().replace("\n", " · ")
 		var moving := m.state == ClawMachine.State.MOVING
 		var t_txt := "%d" % int(ceil(m.time_left)) if moving else "--"
 		mp_big.text = "CREDIT %d   TIME %s" % [m.credits, t_txt]
@@ -295,6 +296,8 @@ func _process(_delta: float) -> void:
 		var g := _guide(m)
 		if Game.touch:
 			g = [_touch_key(g[0]), _keys(g[1])]
+			if String(g[1]).begins_with("오른쪽에서 넣을 지폐"):
+				g[1] = "넣을 지폐를 골라요\n" + m.price_text_full().replace("\n", " · ")
 		mp_key.text = g[0]
 		mp_key.visible = g[0] != "" and not Game.touch  # 휴대폰은 오른쪽 큰 버튼이 곧 할 일
 
@@ -335,7 +338,7 @@ func _keys(t: String) -> String:
 		return t
 	t = t.replace("[E] ", "").replace("[E]", "")
 	t = t.replace("집게 움직이기 → Space 로 내리기", "왼쪽으로 집게 이동 → 오른쪽 '내리기'")
-	t = t.replace("1,000원 넣기  (N = 5,000원)", "오른쪽 버튼으로 1,000원 넣기")
+	t = t.replace("1,000원 넣기  (N = 5,000원 · M = 10,000원)", "오른쪽에서 넣을 지폐를 골라요")
 	t = t.replace("배출구에서 꺼내기", "오른쪽 '꺼내기'")
 	t = t.replace("누르는 동안 → 오른쪽으로 (떼면 끝)", "① 누르는 동안 오른쪽으로")
 	t = t.replace("누르는 동안 ↑ 안쪽으로 · 떼면 내려가요", "② 누르는 동안 안쪽으로 · 떼면 내려가요")
@@ -369,7 +372,7 @@ func _guide(m: ClawMachine) -> Array:
 				return ["", "곧 시작해요..."]
 			if Game.cash_total() <= 0:
 				return ["", "돈이 없어요! 지폐교환기·카운터를 확인하세요"]
-			return ["B", "1,000원 넣기  (N = 5,000원)"]
+			return ["B", "1,000원 넣기  (N = 5,000원 · M = 10,000원)"]
 		ClawMachine.State.MOVING:
 			if m.drop_requested:
 				return ["", "집게가 내려가요!"]
@@ -439,7 +442,7 @@ func _build_help(root: Control) -> void:
 	help_panel.add_child(v)
 	v.add_child(UIKit.title("뽑기장인 사용 설명서"))
 	var txt := """[걷기] WASD 이동 · Shift 달리기 · Space 점프 · Ctrl 앉기(앉아서 걷기) · 마우스 둘러보기 · E 상호작용 · +/- 또는 휠로 확대/축소
-[인형뽑기] 기계 앞에서 E → B로 1,000원(N은 5,000원) 넣기 → 시간 안에 조이스틱 이동 → Space로 집게 내리기
+[인형뽑기] 기계 앞에서 E → B로 1,000원(N은 5,000원, M은 10,000원) 넣기 → 시간 안에 조이스틱 이동 → Space로 집게 내리기
   · C: 정면 → 오른쪽 비스듬히 → 왼쪽 비스듬히 → 가까이 (깊이 확인!)  · +/- : 확대·축소
   · 집게는 줄에 매달려 흔들립니다. 멈춘 뒤 흔들림이 잦아들 때 내리세요.
   · [와리가리] 큰 기계만! 집게가 흔들리는 박자에 맞춰 좌우(또는 앞뒤)로 톡톡 밀면 점점 크게 흔들려요.
@@ -457,14 +460,14 @@ func _build_help(root: Control) -> void:
 		txt = """[걷기] 왼쪽 아래에 손가락을 대고 밀면 이동 (끝까지 밀면 달리기)
            오른쪽 화면을 밀면 둘러보기 · 두 손가락을 벌리면 확대
 [사용하기] 기계·자판기·교환기를 톡 누르면 바로 사용 (바라보면 오른쪽 아래에 큰 버튼도 떠요)
-[인형뽑기] 오른쪽 큰 버튼 하나만 누르면 돼요: 1,000원 넣기 → (왼쪽으로 집게 이동) → 내리기 → 꺼내기
+[인형뽑기] 오른쪽 버튼만 누르면 돼요: 지폐 고르기(1,000·5,000·10,000원) → (왼쪽으로 집게 이동) → 내리기 → 꺼내기
   · 시점 버튼으로 옆에서 깊이 확인 · 집게는 줄에 매달려 흔들려요
   · 와리가리: 큰 기계에서 집게가 흔들리는 박자에 맞춰 좌우로 톡톡 밀어 보세요
 [2버튼·일본식 기계] ① 누르는 동안 오른쪽, ② 누르는 동안 안쪽 → 떼면 내려가요
 [일본식 UFO 기계] 무거운 상자는 통째로 안 들려요. 끝을 살짝 들어 조금씩 밀고, 거의 똑바로 서야 빠져요
 [음료 자판기] 진열창의 음료를 톡 → 1,000원 → 꺼내는 곳을 한 번 더 톡
 [나의 전시실] 가게 안쪽 금색 문 너머. 진열장을 톡 누르면 돌려 보며 구경
-[메뉴] 위 가운데 버튼: 도움말 · 내 수집함 · 사장 모드 · 소리 · 저장"""
+[메뉴] 위 가운데 버튼: 게임 속도(1.0~2.0배) · 도움말 · 내 수집함 · 사장 모드 · 소리 · 저장"""
 	var l := UIKit.label(txt, 19)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD
 	v.add_child(l)
@@ -474,13 +477,15 @@ func _build_help(root: Control) -> void:
 # ------------------------------------------------------------------ 일시정지
 func _build_pause(root: Control) -> void:
 	pause_panel = PanelContainer.new()
-	pause_panel.set_anchors_preset(Control.PRESET_CENTER)
-	pause_panel.position = Vector2(-240, -260)
-	pause_panel.custom_minimum_size = Vector2(480, 520)
+	pause_panel.custom_minimum_size = Vector2(480, 0)
 	pause_panel.visible = false
 	root.add_child(pause_panel)
+	# 내용 높이가 바뀌어도 늘 화면 가운데(위아래로 같이 늘어남)
+	pause_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	pause_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	pause_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
+	v.add_theme_constant_override("separation", 6 if Game.touch else 10)
 	pause_panel.add_child(v)
 	v.add_child(UIKit.title("메뉴"))
 	v.add_child(UIKit.button("계속하기", _toggle_pause))
@@ -498,6 +503,21 @@ func _build_pause(root: Control) -> void:
 		row.add_child(UIKit.button("사장 모드", func():
 			_toggle_pause()
 			_toggle_owner()))
+	# 게임 속도(집게·인형·걷기 모두 같이 빨라짐, 제한 시간은 실제 시간 그대로)
+	var sp_label := UIKit.label("게임 속도: %.1f배" % Game.game_speed, 18)
+	v.add_child(sp_label)
+	var sp := HSlider.new()
+	sp.min_value = 1.0
+	sp.max_value = 2.0
+	sp.step = 0.1
+	sp.tick_count = 11
+	sp.ticks_on_borders = true
+	sp.value = Game.game_speed
+	sp.custom_minimum_size = Vector2(0, 34)
+	sp.value_changed.connect(func(v2):
+		Game.set_game_speed(v2)
+		sp_label.text = "게임 속도: %.1f배" % Game.game_speed)
+	v.add_child(sp)
 	v.add_child(UIKit.label("배경음악", 18))
 	var bgm := HSlider.new()
 	bgm.min_value = 0

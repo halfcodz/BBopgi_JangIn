@@ -956,6 +956,7 @@ func _return_to_bed(p: Prize) -> void:
 	var lp := _rand_pos_in_bed(rng, 0.12 if kind != "small" else 0.07)
 	lp.y = base_h + 0.3
 	p.teleport_to(to_global(lp), rng.randf() * TAU)
+	p.remove_meta("returning")
 
 
 func remove_prize(p: Prize) -> void:
@@ -1015,10 +1016,12 @@ func _win_y() -> float:
 
 func _on_bin_body(body: Node3D) -> void:
 	var p := body.get_parent()
-	if p is Prize and not p.won:
+	if p is Prize and not p.won and not p.is_queued_for_deletion() and not p.has_meta("returning"):
 		var c := to_local((p as Prize).get_center())
 		# 아무도 플레이하지 않을 때(진열·정리 중) 떨어진 상품은 사장님이 다시 넣어 둔다
 		if not game_active and Time.get_ticks_msec() - _last_game_end > 4000:
+			# 같은 상품을 여러 번 되돌리지 않게 표시(배출구 확인은 8프레임마다 반복되므로)
+			p.set_meta("returning", true)
 			_return_to_bed.call_deferred(p)
 			return
 		if c.y < _win_y():
@@ -1043,14 +1046,26 @@ func price_text() -> String:
 	return txt
 
 
+## 화면 안내용(10,000원까지)
+func price_text_full() -> String:
+	var t := price_text()
+	if settings.get("accept_5000", true):
+		t += "\n10,000원 %d회" % (int(settings["bonus_5000"]) * 2)
+	return t
+
+
 func insert_bill(kind_str: String) -> bool:
-	if kind_str == "5000" and not settings.get("accept_5000", true):
-		Game.say("이 기계는 5,000원권을 받지 않아요")
+	if (kind_str == "5000" or kind_str == "10000") and not settings.get("accept_5000", true):
+		Game.say("이 기계는 1,000원권만 받아요")
 		return false
 	if not Game.take_bill(kind_str):
 		Game.say("%s권이 없어요. 지폐교환기를 이용하세요" % Game.won(int(kind_str)))
 		return false
-	var plays := int(settings["plays_per_1000"]) if kind_str == "1000" else int(settings["bonus_5000"])
+	var plays := int(settings["plays_per_1000"])
+	if kind_str == "5000":
+		plays = int(settings["bonus_5000"])
+	elif kind_str == "10000":
+		plays = int(settings["bonus_5000"]) * 2
 	credits += plays
 	ledger["revenue"] = int(ledger["revenue"]) + int(kind_str)
 	Game.record_spend(int(kind_str))
@@ -1151,7 +1166,7 @@ func _physics_process(delta: float) -> void:
 		State.IDLE:
 			pass
 		State.MOVING:
-			time_left -= delta
+			time_left -= delta / Engine.time_scale  # 제한 시간은 게임 속도와 상관없이 실제 시간으로
 			var sec := int(ceil(time_left))
 			if sec <= 5 and sec != _beep_last and sec >= 0:
 				_beep_last = sec

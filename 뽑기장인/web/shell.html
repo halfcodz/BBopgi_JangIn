@@ -161,9 +161,10 @@ html, body {
 	z-index: 20;
 }
 
+/* 게임은 세로로 들어도 자동으로 가로로 돌려 그리므로, 시작 전 화면에서만 안내 */
 @media (orientation: portrait) {
-	body.mobile #rotate {
-		display: flex;
+	body.mobile.waiting #rotate {
+		display: none;
 	}
 }
 
@@ -207,7 +208,7 @@ html, body {
 				<div id="bar"><div></div></div>
 			</div>
 			<div id="error"></div>
-			<p class="tip" id="tip">소리가 나요 🔊 · 가로 화면으로 즐겨 주세요</p>
+			<p class="tip" id="tip">소리가 나요 🔊 · 게임은 가로 화면으로 보여요(휴대폰을 옆으로 눕혀 즐겨 주세요)</p>
 		</div>
 
 		<div id="rotate" class="screen">
@@ -2547,9 +2548,17 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 	}
 
 	document.body.classList.add('mobile');
+	// 화면을 돌린 직후 사파리가 크기를 늦게 알려 주는 경우가 있어, 조금 뒤에 한 번 더 크기를 맞춘다
+	const refit = () => {
+		[120, 400, 900].forEach((t) => setTimeout(() => window.dispatchEvent(new Event('resize')), t));
+	};
+	window.addEventListener('orientationchange', refit);
+	if (window.visualViewport) {
+		window.visualViewport.addEventListener('resize', refit);
+	}
 	$('intro').style.display = 'flex';
 	if (isIOS && !standalone) {
-		$('tip').innerHTML = '소리가 나요 🔊 · 가로 화면으로 즐겨 주세요<br>Safari 공유 버튼 → <b>홈 화면에 추가</b> 하면 앱처럼 꽉 찬 화면으로 할 수 있어요';
+		$('tip').innerHTML = '소리가 나요 🔊 · 게임은 가로 화면으로 보여요(휴대폰을 옆으로 눕혀 즐겨 주세요)<br>Safari 공유 버튼 → <b>홈 화면에 추가</b> 하면 앱처럼 꽉 찬 화면으로 할 수 있어요';
 	}
 
 	const engine = new Engine(GODOT_CONFIG);

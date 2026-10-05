@@ -305,6 +305,8 @@ func _machine_controls(_delta: float) -> void:
 		machine.insert_bill("1000")
 	if Input.is_action_just_pressed("insert_5000"):
 		machine.insert_bill("5000")
+	if Input.is_action_just_pressed("insert_10000"):
+		machine.insert_bill("10000")
 	if Input.is_action_just_pressed("toggle_view"):
 		cycle_view()
 	if Input.is_action_just_pressed("interact"):

@@ -7,8 +7,17 @@ var tc
 var fails := 0
 
 
+## 게임 화면 좌표 → 창(손가락) 좌표. 웹처럼 가로 고정(돌려 그리기) 중이면 그 변환을 거꾸로 따라간다
+func _xf() -> Transform2D:
+	var h = get_root().get_node_or_null("Game/LandscapeHost")
+	if h:
+		var k: Vector2 = Vector2(h.vp.size) / Vector2(h.vp.size_2d_override)
+		return h.container.get_global_transform() * Transform2D(0.0, k, 0.0, Vector2.ZERO)
+	return get_root().get_final_transform()
+
+
 func _to_win(p: Vector2) -> Vector2:
-	return get_root().get_final_transform() * p
+	return _xf() * p
 
 
 func _down(i: int, p: Vector2) -> void:
@@ -31,7 +40,8 @@ func _drag(i: int, p: Vector2, rel: Vector2) -> void:
 	var e := InputEventScreenDrag.new()
 	e.index = i
 	e.position = _to_win(p)
-	e.relative = rel * get_root().get_final_transform().get_scale()
+	# 웹 엔진처럼 일부러 엉뚱한 relative 를 넣어도 조작은 손가락 위치로 계산되어야 한다
+	e.relative = _xf().basis_xform(rel) if OS.get_environment("BAD_REL") != "1" else Vector2(517, -333)
 	Input.parse_input_event(e)
 
 
@@ -73,6 +83,9 @@ func _initialize() -> void:
 	await _frames(240)
 	var game = get_root().get_node("/root/Game")
 	_check("터치 모드 켜짐", game.touch)
+	var host = get_root().get_node_or_null("Game/LandscapeHost")
+	if host:
+		printerr("  (가로 고정 화면: 돌려 그리기=", host.rotated, ", 게임 화면=", host.vp.size_2d_override, ")")
 	tc = main.hud.touch_controls
 	_check("터치 조작 화면 있음", tc != null)
 	if tc == null:
@@ -115,6 +128,24 @@ func _initialize() -> void:
 		await process_frame
 	_up(1, lp + Vector2(100, 0))
 	_check("드래그로 고개 돌리기", absf(player._yaw - yaw0) > 0.3, "%.2f rad" % (player._yaw - yaw0))
+	# 2-1) 걸으면서 동시에 둘러보기(왼손 조이스틱 + 오른손 드래그)
+	var both_p0: Vector3 = player.global_position
+	var both_yaw0: float = player._yaw
+	_down(0, jp)
+	await process_frame
+	_drag(0, jp + Vector2(0, -80), Vector2(0, -80))
+	_down(1, lp)
+	for k in 30:
+		_drag(1, lp + Vector2(4 * (k + 1), 0), Vector2(4, 0))
+		await physics_frame
+		await process_frame
+	var both_moved: float = Vector2(player.global_position.x - both_p0.x, player.global_position.z - both_p0.z).length()
+	var both_turn: float = absf(player._yaw - both_yaw0)
+	_up(1, lp + Vector2(120, 0))
+	_up(0, jp + Vector2(0, -80))
+	await _frames(10)
+	_check("걸으면서 동시에 둘러보기", both_moved > 0.2 and both_turn > 0.3 and both_turn < 2.0, "%.2fm, %.2f rad" % [both_moved, both_turn])
+	_check("동시 조작 뒤 눌림 없음", not Input.is_action_pressed("move_forward"))
 	# 3) 두 손가락 확대
 	var z0: float = player.zoom
 	_down(1, Vector2(vs.x * 0.55, 300))
@@ -162,8 +193,8 @@ func _initialize() -> void:
 	await _frames(30)
 	_check("기계를 톡 → 기계 플레이", player.mode == player.Mode.MACHINE and tc._ctx == "machine", tc._ctx)
 	var c0: int = m.credits
-	_check("큰 버튼 = 1,000원 넣기", _btn("main") != Vector2(-999, -999) and tc._buttons.any(func(b): return b["id"] == "main" and String(b["text"]).begins_with("1,000원")))
-	await _tap("main")
+	_check("지폐 고르기 버튼(1,000/5,000/10,000)", tc._buttons.any(func(b): return b["id"] == "bill1") and tc._buttons.any(func(b): return b["id"] == "bill5") and tc._buttons.any(func(b): return b["id"] == "bill10"))
+	await _tap("bill1")
 	await _frames(240)
 	_check("1,000원 넣기", m.credits > c0 or m.state != 0, "credit=%d state=%d" % [m.credits, m.state])
 	_check("큰 버튼 = 내리기", tc._buttons.any(func(b): return b["id"] == "main" and b["text"] == "내리기"))
@@ -197,7 +228,7 @@ func _initialize() -> void:
 		player.enter_machine(bm)
 		await _frames(30)
 		_check("2버튼 기계 상황", tc._ctx == "machine2", tc._ctx)
-		await _tap("main")
+		await _tap("bill1")
 		await _frames(240)
 		var bx0: float = bm.carriage.x
 		var bz0: float = bm.carriage.z

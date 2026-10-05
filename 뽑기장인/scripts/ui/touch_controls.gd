@@ -55,7 +55,7 @@ func _context() -> String:
 
 func _safe_rect() -> Rect2:
 	var vs := get_viewport_rect().size
-	if not Game.phone:
+	if not Game.phone or Game.web:
 		return Rect2(Vector2.ZERO, vs)
 	# 노치·홈 바를 피한다(화면 픽셀 → 기준 화면 단위)
 	var win := Vector2(DisplayServer.window_get_size())
@@ -85,15 +85,17 @@ func _focus_label(f) -> String:
 	return "누르기"
 
 
+## 지폐를 고를 때인가(쉬는 중 · 크레딧 없음 · 배출구 비었음)
+func _choose_bill(m: ClawMachine) -> bool:
+	return m.state == ClawMachine.State.IDLE and m.credits == 0 and m.prizes_in_bin().is_empty() \
+		and (Game.has_bill("1000") or Game.has_bill("5000") or Game.has_bill("10000"))
+
+
 ## 기계 앞 큰 버튼: [글자, 동작(빈 문자열 = 기다리기)]
 func _machine_main(m: ClawMachine) -> Array:
 	if not m.prizes_in_bin().is_empty() and m.state != ClawMachine.State.MOVING:
 		return ["꺼내기", "interact"]
 	if m.state == ClawMachine.State.IDLE and m.credits == 0:
-		if Game.has_bill("1000"):
-			return ["1,000원\n넣기", "insert_1000"]
-		if Game.has_bill("5000") and bool(m.settings.get("accept_5000", true)):
-			return ["5,000원\n넣기", "insert_5000"]
 		return ["돈 없음", ""]
 	if m.state == ClawMachine.State.MOVING:
 		if m.drop_requested:
@@ -126,11 +128,17 @@ func _layout() -> void:
 				# 2버튼 기계: ① 누르는 동안 오른쪽, ② 누르는 동안 안쪽(떼면 내려감)
 				_add("b1", "① →", "button2", Vector2(R - 270, B - 92), 74.0, true, not m.btn1_used)
 				_add("b2", "② ↑", "move_forward", Vector2(R - 96, B - 92), 74.0, true)
+			elif _choose_bill(m):
+				# 돈 넣기: 넣을 지폐를 고른다(가진 장수 표시)
+				var big5 := bool(m.settings.get("accept_5000", true))
+				_add("bill1", "1,000원\n×%d" % int(Game.wallet.get("1000", 0)), "insert_1000", Vector2(R - 100, B - 104), 74.0, true, Game.has_bill("1000"))
+				_add("bill5", "5,000원\n×%d" % int(Game.wallet.get("5000", 0)), "insert_5000", Vector2(R - 262, B - 70), 54.0, true, big5 and Game.has_bill("5000"))
+				_add("bill10", "10,000원\n×%d" % int(Game.wallet.get("10000", 0)), "insert_10000", Vector2(R - 110, B - 270), 54.0, true, big5 and Game.has_bill("10000"))
 			else:
 				var mm := _machine_main(m)
 				_add("main", mm[0], mm[1], Vector2(R - 100, B - 104), 82.0, true, mm[1] != "")
-			_add("view", "시점", "toggle_view", Vector2(R - 60, B - 300), 36.0)
-			_add("leave", "나가기", "leave", Vector2(L + 52, _safe.position.y + 190), 36.0)
+			_add("view", "시점", "toggle_view", Vector2(R - 262, B - 230), 36.0)
+			_add("leave", "나가기", "leave", Vector2(R - 60, B - 400), 34.0)
 		"inspector":
 			_add("zin", "+", "zoom_in", Vector2(R - 50, B - 170), 38.0)
 			_add("zout", "-", "zoom_out", Vector2(R - 50, B - 70), 38.0)
@@ -214,6 +222,8 @@ func _button_at(p: Vector2) -> Dictionary:
 
 
 func _touch_down(i: int, p: Vector2) -> void:
+	if _touches.has(i):
+		_end_touch(i)  # 같은 번호가 아직 남아 있으면(떼는 신호를 놓친 경우) 먼저 정리
 	var b := _button_at(p)
 	if not b.is_empty():
 		_touches[i] = {"role": "btn", "id": b["id"]}
@@ -238,6 +248,25 @@ func _touch_down(i: int, p: Vector2) -> void:
 	_touches[i] = {"role": "look", "start": p, "t": _time, "moved": 0.0}
 	_look_last[i] = p
 	_pinch_d = -1.0
+
+
+## 손을 뗀 것으로 정리만 한다(톡 판정 없이)
+func _end_touch(i: int) -> void:
+	var t: Dictionary = _touches[i]
+	_touches.erase(i)
+	match String(t["role"]):
+		"btn":
+			var id: String = t["id"]
+			if _held.get(id, -1) == i:
+				_held.erase(id)
+				_release_button_action(id)
+		"joy":
+			_joy_index = -1
+			_joy_vec = Vector2.ZERO
+			_apply_joy()
+		"look":
+			_look_last.erase(i)
+			_pinch_d = -1.0
 
 
 func _touch_up(i: int, p: Vector2) -> void:
@@ -277,6 +306,11 @@ func _touch_move(i: int, p: Vector2, rel: Vector2) -> void:
 			_update_joy(p)
 		"look":
 			t["moved"] = maxf(float(t["moved"]), p.distance_to(t["start"]))
+			# 움직인 양은 손가락마다 직접 계산한다(웹은 손가락 두 개일 때 엔진이 주는 relative 가 서로 섞이는 문제가 있음)
+			var prev: Vector2 = _look_last.get(i, p)
+			rel = p - prev
+			if rel.length() > 160.0:
+				rel = Vector2.ZERO  # 순간 튀는 값은 무시
 			_look_last[i] = p
 			if _look_last.size() >= 2:
 				# 두 손가락: 벌리면 확대, 오므리면 축소
