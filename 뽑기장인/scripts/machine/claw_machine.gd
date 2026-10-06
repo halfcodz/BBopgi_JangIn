@@ -480,8 +480,6 @@ func _build_cabinet() -> void:
 	interior_light.spot_angle = 62
 	interior_light.spot_range = 2.0
 	interior_light.light_energy = 2.2 if kind != "small" else 1.6
-	if Game.web:
-		interior_light.light_energy *= 0.8  # 웹은 주변광이 더 밝아서, 가까이서 볼 때 눈부시지 않게
 	interior_light.light_color = Color(1.0, 0.97, 0.93)
 	interior_light.shadow_enabled = true
 	interior_light.shadow_bias = 0.04

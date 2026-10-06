@@ -54,16 +54,8 @@ func _context() -> String:
 
 
 func _safe_rect() -> Rect2:
-	var vs := get_viewport_rect().size
-	if not Game.phone or Game.web:
-		return Rect2(Vector2.ZERO, vs)
-	# 노치·홈 바를 피한다(화면 픽셀 → 기준 화면 단위)
-	var win := Vector2(DisplayServer.window_get_size())
-	var sa := DisplayServer.get_display_safe_area()
-	if win.x <= 0.0 or sa.size.x <= 0:
-		return Rect2(Vector2.ZERO, vs)
-	var k := vs / win
-	return Rect2(Vector2(sa.position) * k, Vector2(sa.size) * k).intersection(Rect2(Vector2.ZERO, vs))
+	# 노치·다이내믹 아일랜드·홈 바를 피한다(앱·웹 모두)
+	return Game.safe_rect(get_viewport_rect().size)
 
 
 ## 바라보는 물건에 맞는 큰 버튼 글자

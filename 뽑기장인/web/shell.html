@@ -2,7 +2,7 @@
 <html lang="ko">
 	<head>
 		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 		<meta name="apple-mobile-web-app-capable" content="yes">
 		<meta name="mobile-web-app-capable" content="yes">
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -38,6 +38,17 @@ html, body {
 	inset: 0;
 }
 
+#safeProbe {
+	position: fixed;
+	left: 0;
+	top: 0;
+	width: 0;
+	height: 0;
+	visibility: hidden;
+	pointer-events: none;
+	padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
 #canvas:focus {
 	outline: none;
 }
@@ -51,7 +62,7 @@ html, body {
 	justify-content: center;
 	text-align: center;
 	gap: 14px;
-	padding: 24px;
+	padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
 	box-sizing: border-box;
 	background: radial-gradient(circle at 50% 35%, #ff7cc0 0%, #9a4fd6 55%, #2a1740 100%);
 	z-index: 10;
@@ -2555,9 +2566,26 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 		const realDpr = window.devicePixelRatio || 1;
 		Object.defineProperty(window, 'devicePixelRatio', { get: () => Math.min(2, realDpr), configurable: true });
 	} catch (e) {}
+	// 노치·다이내믹 아일랜드·홈 바 자리(안전 여백)를 게임에 알려 준다.
+	// 게임 화면은 가장자리까지 꽉 채우고(viewport-fit=cover), 버튼·글씨만 이 여백 안쪽에 둔다
+	const probe = document.createElement('div');
+	probe.id = 'safeProbe';
+	document.body.appendChild(probe);
+	const readSafe = () => {
+		const cs = getComputedStyle(probe);
+		const px = (v) => parseFloat(v) || 0;
+		window.__bbSafe = [px(cs.paddingLeft), px(cs.paddingTop), px(cs.paddingRight), px(cs.paddingBottom), window.innerWidth, window.innerHeight];
+		if (params.has('fakesafe')) {
+			// 시험용: ?fakesafe=왼,위,오,아래
+			const f = params.get('fakesafe').split(',').map(Number);
+			window.__bbSafe = [f[0], f[1], f[2], f[3], window.innerWidth, window.innerHeight];
+		}
+	};
+	readSafe();
+	window.addEventListener('resize', readSafe);
 	// 화면을 돌린 직후 사파리가 크기를 늦게 알려 주는 경우가 있어, 조금 뒤에 한 번 더 크기를 맞춘다
 	const refit = () => {
-		[120, 400, 900].forEach((t) => setTimeout(() => window.dispatchEvent(new Event('resize')), t));
+		[120, 400, 900].forEach((t) => setTimeout(() => { readSafe(); window.dispatchEvent(new Event('resize')); }, t));
 	};
 	window.addEventListener('orientationchange', refit);
 	if (window.visualViewport) {

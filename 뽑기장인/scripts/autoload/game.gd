@@ -100,6 +100,49 @@ func set_game_speed(s: float) -> void:
 	Engine.max_physics_steps_per_frame = int(ceil(base_steps * game_speed))
 
 
+var _web_safe := PackedFloat64Array()
+var _web_safe_t := -1.0
+
+
+## 화면에서 버튼·글씨를 둘 수 있는 안전 영역(노치·다이내믹 아일랜드·홈 바 피함), 게임 화면 단위(vs = 화면 크기)
+## 3D 화면은 가장자리까지 꽉 채우고, 누르는 버튼과 안내판만 이 안쪽에 둔다
+func safe_rect(vs: Vector2) -> Rect2:
+	var full := Rect2(Vector2.ZERO, vs)
+	if web:
+		if not OS.has_feature("web"):
+			return full
+		var now := Time.get_ticks_msec() / 1000.0
+		if _web_safe_t < 0.0 or now - _web_safe_t > 0.5:
+			_web_safe_t = now
+			var s = JavaScriptBridge.eval("window.__bbSafe ? window.__bbSafe.join(',') : ''", true)
+			if s is String and s != "":
+				_web_safe = PackedFloat64Array(Array(s.split(",")).map(func(x): return float(x)))
+		if _web_safe.size() < 6 or _web_safe[4] <= 0.0 or _web_safe[5] <= 0.0:
+			return full
+		var l := _web_safe[0]
+		var t := _web_safe[1]
+		var r := _web_safe[2]
+		var b := _web_safe[3]
+		var rot: bool = landscape_host != null and landscape_host.rotated
+		var k := vs.y / (_web_safe[4] if rot else _web_safe[5])
+		if rot:
+			# 화면을 돌려 그릴 때: 게임 왼쪽=휴대폰 위, 게임 오른쪽=아래, 게임 위=오른쪽, 게임 아래=왼쪽
+			var gl := t
+			var gr := b
+			var gt := r
+			var gb := l
+			l = gl; r = gr; t = gt; b = gb
+		return Rect2(Vector2(l, t) * k, vs - Vector2(l + r, t + b) * k)
+	if not phone:
+		return full
+	var win := Vector2(DisplayServer.window_get_size())
+	var sa := DisplayServer.get_display_safe_area()
+	if win.x <= 0.0 or sa.size.x <= 0:
+		return full
+	var kk := vs / win
+	return Rect2(Vector2(sa.position) * kk, Vector2(sa.size) * kk).intersection(full)
+
+
 ## 물리 한 번 계산하는 시간(초) – 게임 속도와 상관없이 1/120
 func phys_dt() -> float:
 	return Engine.time_scale / float(Engine.physics_ticks_per_second)

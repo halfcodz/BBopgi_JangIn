@@ -28,6 +28,8 @@ var stats_label: Label
 var owner_panel: OwnerPanel
 var _bill_labels := {}
 var touch_controls: TouchControls
+var _root: Control
+var _safe_last := Rect2()
 
 
 func _ready() -> void:
@@ -37,6 +39,7 @@ func _ready() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.theme = UIKit.theme()
 	add_child(root)
+	_root = root
 
 	# 지갑
 	var wp := PanelContainer.new()
@@ -279,7 +282,27 @@ func _on_mode(mode: int) -> void:
 	prompt.visible = mode == Player.Mode.WALK
 
 
+## 지갑·안내판 같은 글씨는 노치·다이내믹 아일랜드·홈 바를 피해 안쪽에 둔다(3D 화면은 가장자리까지 꽉 참)
+func _fit_safe_area() -> void:
+	var vs := _root.get_viewport_rect().size
+	var sr := Game.safe_rect(vs)
+	if sr == _safe_last:
+		return
+	_safe_last = sr
+	_root.offset_left = sr.position.x
+	_root.offset_top = sr.position.y
+	_root.offset_right = sr.end.x - vs.x
+	_root.offset_bottom = sr.end.y - vs.y
+	if touch_controls:
+		# 터치 조작판은 화면 전체를 그대로 쓴다(안쪽 배치는 조작판이 직접 맞춘다)
+		touch_controls.offset_left = -_root.offset_left
+		touch_controls.offset_top = -_root.offset_top
+		touch_controls.offset_right = -_root.offset_right
+		touch_controls.offset_bottom = -_root.offset_bottom
+
+
 func _process(_delta: float) -> void:
+	_fit_safe_area()
 	var on_bridge: bool = player != null and player.mode == Player.Mode.MACHINE and player.machine is BridgeMachine
 	bridge_guide.visible = on_bridge
 	if on_bridge:

@@ -60,10 +60,8 @@ func _build_environment() -> void:
 	e.adjustment_enabled = true
 	e.adjustment_saturation = 1.15
 	if Game.web:
-		# 웹(아이폰 사파리): 빛 번짐(glow)·색 보정은 소수점 색 버퍼가 필요한데, 아이폰 웹은 이를 제대로 지원하지 않아
-		# 밝은 곳(흰 바닥 칸 등)에 줄무늬 잡음이 생긴다 → 끄고 한 번에 그린다(더 빠르기도 함)
-		e.glow_enabled = false
-		e.adjustment_enabled = false
+		# 빛 번짐·색 보정은 예전처럼 켠다: 이걸 끄면 조명마다 따로 밝기를 눌러 더해져서 기계 안이 눈부시게 밝아진다
+		# (바닥 줄무늬의 진짜 원인은 반사 프로브였다 → 아래에서 웹만 끔)
 		# 웹(호환 렌더러)의 SSAO 는 잡음을 걸러 주지 않아, 바닥 같은 넓은 면에 자글자글한 줄무늬가 생긴다 → 끈다
 		e.ssao_enabled = false
 		# 톤매핑은 PC와 같은 AgX(밝은 곳을 부드럽게 눌러 줘서 기계 안 조명이 눈부시지 않다)
