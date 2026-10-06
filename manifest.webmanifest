@@ -1,0 +1,15 @@
+{
+  "name": "뽑기장인",
+  "short_name": "뽑기장인",
+  "description": "진짜 뽑기방처럼 연습하는 3D 인형뽑기",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#140f1a",
+  "theme_color": "#140f1a",
+  "icons": [
+    { "src": "index.180x180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon_512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
