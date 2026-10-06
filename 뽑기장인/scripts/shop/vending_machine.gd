@@ -409,6 +409,8 @@ func _set_aim(i: int) -> void:
 
 
 func _process(_delta: float) -> void:
+	if _busy:
+		Game.keep_active()  # 음료가 떨어지는 동안 60fps
 	# 바라보는 동안만 버튼 강조(멀어지면 꺼짐)
 	if _aim >= 0:
 		var cam := get_viewport().get_camera_3d()

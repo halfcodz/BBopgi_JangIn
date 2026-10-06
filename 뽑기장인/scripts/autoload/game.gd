@@ -81,7 +81,8 @@ func _setup_mobile() -> void:
 		Engine.max_physics_steps_per_frame = 4
 	if web:
 		# 휴대폰 웹(사파리): 그래픽 처리 여유가 적으므로 3D 해상도를 더 낮추고, 느려지면 물리를 늦춰 버틴다
-		win.scaling_3d_scale = 1.0  # 화면 배율을 2배로 묶어 두었으므로(웹 시작 화면) 3D는 제 해상도로(중간 버퍼 없이 한 번에 그림)
+		# 발열: 3D만 85% 해상도로 그린다(글씨·버튼은 원래 해상도). 빛 번짐 효과로 어차피 중간 버퍼를 쓰므로 추가 비용 없음
+		win.scaling_3d_scale = 0.85
 		Engine.max_physics_steps_per_frame = 3
 	# 웹(휴대폰 사파리): 화면 방향을 잠글 수 없으니 게임을 항상 가로로 돌려 그린다
 	if web or OS.get_environment("BBOPGI_ROTATE") == "1":
@@ -93,13 +94,66 @@ func _setup_mobile() -> void:
 		Input.emulate_touch_from_mouse = true
 
 
+# ------------------------------------------------------------------ 발열 줄이기(휴대폰)
+## 아무것도 움직이지 않을 때(손을 떼고 서 있을 때)는 30fps 로 그려 휴대폰이 덜 뜨거워진다.
+## 화면을 만지거나, 뽑기·자판기 등이 움직이는 동안에는 60fps 로 부드럽게.
+const ACTIVE_FPS := 60
+const CALM_FPS := 30
+var _active_until := 0
+var _calm := false
+
+
+## 기계가 움직이는 동안 계속 불러 준다(그동안 60fps 유지)
+func keep_active(ms: int = 1500) -> void:
+	_active_until = maxi(_active_until, Time.get_ticks_msec() + ms)
+
+
+var _held_touches := {}
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		# 손가락을 대고 가만히 있어도(조이스틱을 민 채로 걷기) 60fps 유지
+		if event.pressed:
+			_held_touches[event.index] = true
+		else:
+			_held_touches.erase(event.index)
+	if phone and (event is InputEventScreenTouch or event is InputEventScreenDrag or event is InputEventKey or event is InputEventMouse):
+		keep_active(2500)
+		if _calm:
+			_set_calm(false)  # 만지는 즉시 60fps 로
+
+
+func _process(_delta: float) -> void:
+	if not phone:
+		return
+	if not _held_touches.is_empty() or Input.is_anything_pressed():
+		keep_active(1500)
+	var calm := Time.get_ticks_msec() > _active_until
+	if calm != _calm:
+		_set_calm(calm)
+
+
+func _set_calm(on: bool) -> void:
+	_calm = on
+	Engine.max_fps = CALM_FPS if on else ACTIVE_FPS
+	_fit_physics_steps()
+
+
+## 한 화면 사이에 필요한 물리 계산 횟수만큼은 허용(30fps 에서도 게임 속도가 느려지지 않게)
+func _fit_physics_steps() -> void:
+	var fps := float(Engine.max_fps if Engine.max_fps > 0 else 60)
+	var need := int(ceil(Engine.physics_ticks_per_second / fps))
+	var base_steps := 3 if web else (4 if phone else 12)
+	Engine.max_physics_steps_per_frame = maxi(int(ceil(base_steps * game_speed)), need + 1)
+
+
 ## 게임 속도 바꾸기: 시간 배율과 1초당 물리 계산 횟수를 같이 올려 한 번 계산하는 간격(1/120초)은 그대로 유지
 func set_game_speed(s: float) -> void:
 	game_speed = clampf(snappedf(s, 0.1), 1.0, 2.0)
 	Engine.time_scale = game_speed
 	Engine.physics_ticks_per_second = int(round(BASE_TICKS * game_speed))
-	var base_steps := 3 if web else (4 if phone else 12)
-	Engine.max_physics_steps_per_frame = int(ceil(base_steps * game_speed))
+	_fit_physics_steps()
 
 
 var _web_safe := PackedFloat64Array()

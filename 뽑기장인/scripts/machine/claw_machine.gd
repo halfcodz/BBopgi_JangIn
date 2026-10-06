@@ -1179,6 +1179,8 @@ func _physics_process(delta: float) -> void:
 	if claw == null:
 		return
 	phase_t += delta
+	if game_active:
+		Game.keep_active()  # 한 판 진행 중에는 60fps(휴대폰 발열 줄이기의 30fps 쉬는 모드 해제)
 	var speed := float(settings["move_speed"])
 	var want := Vector3.ZERO
 	match state:

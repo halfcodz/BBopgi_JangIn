@@ -117,6 +117,7 @@ func interact(_player) -> void:
 	Game.record_spend(price)
 	Game.stats["gacha"] = int(Game.stats.get("gacha", 0)) + 1
 	_busy = true
+	Game.keep_active(4000)  # 손잡이 돌리고 캡슐 떨어지는 동안 60fps
 	Sfx.play_at("gacha_crank", global_position + Vector3(0, 0.15, 0.25))
 	var tw := create_tween()
 	tw.tween_property(knob, "rotation:z", knob.rotation.z - TAU, 1.2).set_trans(Tween.TRANS_SINE)
