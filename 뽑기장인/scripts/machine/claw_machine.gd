@@ -93,6 +93,7 @@ var btn1_used := false
 var btn2_used := false
 var btn1_down := false
 var btn2_down := false
+var _btn1_ms := 0  # ① 을 누르기 시작한 시각(아주 짧게 스친 터치는 '사용'으로 치지 않음)
 var game_active := false
 var _bulb_t := 0.0
 var _beep_last := -1
@@ -1112,6 +1113,8 @@ func _start_game() -> void:
 	time_left = float(settings["timer_sec"])
 	btn1_used = false
 	btn2_used = false
+	btn1_down = false
+	btn2_down = false
 	drop_requested = false
 	if settings.get("start_from_home", true):
 		pass
@@ -1153,11 +1156,13 @@ func set_buttons(b1: bool, b2: bool) -> void:
 		btn2_down = false
 		return
 	if btn1_down and not b1:
-		btn1_used = true
+		# 0.1초도 안 되는 스침(손가락이 살짝 닿았다 떨어짐)은 기회를 쓰지 않은 것으로
+		btn1_used = Time.get_ticks_msec() - _btn1_ms > 100 or carriage_vel.length() > 0.01
 	if btn2_down and not b2:
 		btn2_used = true
 		drop_requested = true
 	if b1 and not btn1_down and not btn1_used:
+		_btn1_ms = Time.get_ticks_msec()
 		Sfx.play_at("button", to_global(Vector3(0.06, base_h, D * 0.5 + 0.1)))
 	if b2 and not btn2_down and not btn2_used:
 		btn1_used = true
@@ -1289,6 +1294,11 @@ func _physics_process(delta: float) -> void:
 		State.RESETTING:
 			if phase_t > 0.6:
 				game_active = false
+				# 다음 판을 위해 버튼 상태를 비운다(① 이 '이미 씀'으로 남아 눌리지 않던 문제)
+				btn1_used = false
+				btn2_used = false
+				btn1_down = false
+				btn2_down = false
 				_last_game_end = Time.get_ticks_msec()
 				_set_state(State.IDLE)
 				save_layout()

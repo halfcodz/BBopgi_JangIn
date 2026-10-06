@@ -206,7 +206,7 @@ static func create(id: String, rng: RandomNumberGenerator = null, colorway: int 
 		body.continuous_cd = true
 		body.position = _v(p["origin"]) * s
 		for sd in p["shapes"]:
-			var res := _make_shape(sd, s, not meta.has("material"))
+			var res := _make_shape(sd, s, not meta.has("material") or meta["material"] == "original")
 			if res.is_empty():
 				continue
 			var cs := CollisionShape3D.new()
@@ -249,6 +249,8 @@ static func create(id: String, rng: RandomNumberGenerator = null, colorway: int 
 					mesh_inst.material_override = _mat_cache[tkey]
 				else:
 					mesh_inst.material_override = accessory_material(kind)
+			elif meta.get("material", "") == "original":
+				pass  # 직접 가져온 모델: glb 에 들어 있는 원래 색·그림(텍스처)을 그대로 쓴다
 			elif meta.has("material"):
 				mesh_inst.material_override = _rigid_material(meta["material"], colors, item)
 			else:

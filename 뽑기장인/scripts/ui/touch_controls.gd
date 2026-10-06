@@ -120,7 +120,7 @@ func _layout() -> void:
 			var two_moving := _ctx == "machine2" and ((m.state == ClawMachine.State.MOVING and not m.drop_requested) or two_ready)
 			if two_moving:
 				# 2버튼 기계: ① 누르는 동안 오른쪽, ② 누르는 동안 안쪽(떼면 내려감)
-				_add("b1", "① →", "button2", Vector2(R - 270, B - 92), 74.0, true, not m.btn1_used)
+				_add("b1", "① →", "button2", Vector2(R - 270, B - 92), 74.0, true, not m.btn1_used or m.state == ClawMachine.State.IDLE)
 				_add("b2", "② ↑", "move_forward", Vector2(R - 96, B - 92), 74.0, true)
 			elif _choose_bill(m):
 				# 돈 넣기: 넣을 지폐를 고른다(가진 장수 표시)

@@ -248,6 +248,18 @@ func _initialize() -> void:
 			await physics_frame
 			if bm.state == bm.State.IDLE:
 				break
+		# 두 번째 판: ① 이 다시 눌려야 한다(예전엔 '이미 씀'으로 남아 안 눌렸음)
+		await _frames(30)
+		if not tc._buttons.any(func(b): return b["id"] == "b1"):
+			await _tap("bill1")
+			await _frames(240)
+		var bx1: float = bm.carriage.x
+		_check("두 번째 판 ① 버튼 켜짐", tc._buttons.any(func(b): return b["id"] == "b1" and b["enabled"]))
+		_down(4, _btn("b1"))
+		await _frames(120)
+		_up(4, _btn("b1"))
+		await _frames(30)
+		_check("두 번째 판 ① 누르면 시작·이동", bm.state == bm.State.MOVING and bm.carriage.x > bx1 + 0.03, "state=%d %.2fm" % [bm.state, bm.carriage.x - bx1])
 		player.leave_machine()
 		await _frames(30)
 	# 8) 메뉴·도움말·수집함 버튼

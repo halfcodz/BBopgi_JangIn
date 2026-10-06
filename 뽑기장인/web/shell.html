@@ -9,6 +9,8 @@
 		<meta name="apple-mobile-web-app-title" content="뽑기장인">
 		<meta name="theme-color" content="#140f1a">
 		<link rel="apple-touch-icon" href="index.180x180.png">
+		<!-- 홈 화면에 추가한 앱: 가로 화면·전체 화면으로 열기(안드로이드 크롬이 따름) -->
+		<link rel="manifest" href="manifest.webmanifest">
 		<title>뽑기장인 – 인형뽑기 연습</title>
 		<style>
 html, body, #canvas {
@@ -164,6 +166,20 @@ html, body {
 	.logo { width: 64px; height: 64px; border-radius: 16px; }
 	.start { padding: 10px 36px; font-size: 20px; margin-top: 2px; }
 	.tip { font-size: 12px !important; }
+}
+
+/* 시작 화면도 게임처럼 언제나 가로: 휴대폰을 세로로 들고 있으면 시계 방향으로 90° 돌려 보여 준다
+   (게임 화면과 같은 방향이라, 처음부터 휴대폰을 옆으로 눕혀 들면 시작 화면부터 똑바로 보인다) */
+@media (orientation: portrait) {
+	body.mobile #intro {
+		inset: auto;
+		top: 0;
+		left: 100vw;
+		width: 100vh;
+		height: 100vw;
+		transform-origin: top left;
+		transform: rotate(90deg);
+	}
 }
 
 /* 세로로 들고 있으면 돌려 달라고 안내(게임은 가로 화면) */
@@ -2636,7 +2652,24 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 		navigator.storage.persist().catch(() => {});
 	}
 
+	// 화면 자체를 가로로 고정(되는 기기만: 안드로이드 크롬·홈 화면 앱). 아이폰은 웹에서 막혀 있어
+	// 게임을 가로로 돌려 그리는 방식으로 대신한다
+	function lockLandscape() {
+		const lock = () => {
+			if (screen.orientation && screen.orientation.lock) {
+				screen.orientation.lock('landscape').catch(() => {});
+			}
+		};
+		const el = document.documentElement;
+		if (!standalone && el.requestFullscreen && !document.fullscreenElement) {
+			el.requestFullscreen({ navigationUI: 'hide' }).then(lock, lock);
+		} else {
+			lock();
+		}
+	}
+
 	function start() {
+		try { lockLandscape(); } catch (e) {}
 		$('ready').style.display = 'none';
 		$('loading').style.display = 'block';
 		const bar = $('bar').firstElementChild;

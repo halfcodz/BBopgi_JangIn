@@ -13,6 +13,7 @@ var mp_name: Label
 var mp_info: Label
 var mp_state: Label
 var mp_big: Label
+var credit_timer: CreditTimer
 var inspector: Inspector
 var mp_keys: Label
 var mp_key: Label
@@ -134,6 +135,16 @@ func _ready() -> void:
 		machine_panel.offset_bottom = 110
 		machine_panel.grow_vertical = Control.GROW_DIRECTION_END
 	root.add_child(machine_panel)
+	# CREDIT · TIME 전광판: 화면 위 가운데(휴대폰은 '메뉴' 버튼 아래)
+	credit_timer = CreditTimer.new()
+	credit_timer.anchor_left = 0.5
+	credit_timer.anchor_right = 0.5
+	credit_timer.offset_left = -CreditTimer.W * 0.5
+	credit_timer.offset_right = CreditTimer.W * 0.5
+	credit_timer.offset_top = 80.0 if Game.touch else 16.0
+	credit_timer.offset_bottom = credit_timer.offset_top + CreditTimer.H
+	credit_timer.visible = false
+	root.add_child(credit_timer)
 	var mv := VBoxContainer.new()
 	mv.add_theme_constant_override("separation", 6)
 	machine_panel.add_child(mv)
@@ -145,6 +156,7 @@ func _ready() -> void:
 	mp_info = UIKit.label("", 16, Color(0.5, 0.4, 0.5))
 	mh.add_child(mp_info)
 	mp_big = UIKit.title("", 30)
+	mp_big.visible = false  # 크레딧·시간은 화면 위 가운데 전광판(CreditTimer)으로 크게 보여 준다
 	mv.add_child(mp_big)
 	# 지금 할 일: 키 모양 + 설명
 	var step := HBoxContainer.new()
@@ -278,6 +290,9 @@ func _on_focus(target) -> void:
 
 func _on_mode(mode: int) -> void:
 	machine_panel.visible = mode == Player.Mode.MACHINE
+	credit_timer.visible = mode == Player.Mode.MACHINE
+	# 기계 앞에서는 알림 말풍선이 전광판을 가리지 않게 그 아래로
+	toast_box.position.y = (credit_timer.offset_top + CreditTimer.H + 10.0) if mode == Player.Mode.MACHINE else 90.0
 	crosshair.visible = mode == Player.Mode.WALK
 	prompt.visible = mode == Player.Mode.WALK
 
@@ -309,6 +324,7 @@ func _process(_delta: float) -> void:
 		bridge_guide.machine = player.machine
 	if player and player.mode == Player.Mode.MACHINE and player.machine:
 		var m: ClawMachine = player.machine
+		credit_timer.machine = m
 		mp_name.text = String(m.settings.get("name", "인형뽑기"))
 		# 휴대폰은 조작 안내 칸이 좁으므로 기본 가격만(지폐별 횟수는 지폐 버튼을 고를 때 안내)
 		mp_info.text = m.price_text().split("\n")[0] if Game.touch else m.price_text_full().replace("\n", " · ")
