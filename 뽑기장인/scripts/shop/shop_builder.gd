@@ -69,13 +69,16 @@ func _build_environment() -> void:
 		e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	we.environment = e
 	add_child(we)
-	var probe := ReflectionProbe.new()
-	probe.size = Vector3(RX * 2, RH, RZ * 2)
-	probe.position = Vector3(0, RH * 0.5, 0)
-	probe.box_projection = true
-	probe.interior = true
-	probe.update_mode = ReflectionProbe.UPDATE_ONCE
-	add_child(probe)
+	# 웹(호환 렌더러)의 반사 프로브는 거친 반사를 흐리게 만들지 못해(필터 없는 낮은 해상도 큐브맵)
+	# 바닥에 물건 윤곽이 가로 줄무늬로 번져 자글거린다 → 웹은 반사 프로브를 쓰지 않는다
+	if not Game.web:
+		var probe := ReflectionProbe.new()
+		probe.size = Vector3(RX * 2, RH, RZ * 2)
+		probe.position = Vector3(0, RH * 0.5, 0)
+		probe.box_projection = true
+		probe.interior = true
+		probe.update_mode = ReflectionProbe.UPDATE_ONCE
+		add_child(probe)
 	# 천장 네온 라인(사진 속 분홍·보라 줄 조명) + 은은한 색 조명
 	var neon_cols := [Color(1.0, 0.35, 0.85), Color(0.7, 0.4, 1.0), Color(0.35, 0.85, 1.0)]
 	for i in 6:
@@ -110,12 +113,19 @@ func _build_room() -> void:
 		# 휴대폰: 아주 매끈한 반짝임은 작은 화면에서 반짝반짝 떨려 보이므로 조금 부드럽게
 		floor_mat.roughness = 0.3
 		floor_mat.clearcoat_roughness = 0.25
+	if Game.web:
+		# 웹(사파리): 가장 단순하고 안정적인 방식으로(코팅 광택·이방성 필터 없이)
+		floor_mat.clearcoat_enabled = false
+		floor_mat.roughness = 0.45
+		floor_mat.metallic_specular = 0.5
+		floor_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var fl := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(RX * 2, RZ * 2)
 	fl.mesh = pm
 	fl.material_override = floor_mat
 	add_child(fl)
+
 	var fb := StaticBody3D.new()
 	fb.collision_layer = 1 | 8
 	var fcs := CollisionShape3D.new()

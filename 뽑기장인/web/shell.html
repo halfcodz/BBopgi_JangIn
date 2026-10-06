@@ -200,6 +200,7 @@ html, body {
 			<img class="logo" src="index.180x180.png" alt="">
 			<h1>뽑기장인</h1>
 			<p>진짜 뽑기방처럼 연습하는 3D 인형뽑기</p>
+			<p class="tip">버전 __BUILD__</p>
 			<div id="ready">
 				<button class="start" id="startBtn">▶ 게임 시작</button>
 			</div>
@@ -2521,7 +2522,6 @@ var qrcode = function() {
 		<script>
 const GODOT_CONFIG = $GODOT_CONFIG;
 const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
-const CACHE_TAG = JSON.stringify(GODOT_CONFIG.fileSizes || {}); // 배포할 때마다 바뀌는 값(파일 크기)
 
 (function () {
 	const ua = navigator.userAgent;
@@ -2570,37 +2570,22 @@ const CACHE_TAG = JSON.stringify(GODOT_CONFIG.fileSizes || {}); // 배포할 때
 
 	const engine = new Engine(GODOT_CONFIG);
 
-	// 새로 배포된 버전이 있으면 바로 바꿔 끼우고 한 번 새로고침(저장된 옛 파일로 계속 실행되지 않게)
+	// 예전 버전이 남긴 오프라인 저장(서비스 워커·캐시)을 모두 지운다 → 언제나 최신 버전으로 실행
 	if ('serviceWorker' in navigator) {
-		navigator.serviceWorker.getRegistration().then((reg) => {
-			if (!reg) {
+		navigator.serviceWorker.getRegistrations().then((regs) => {
+			if (regs.length === 0) {
 				return;
 			}
-			const swap = (w) => {
-				if (sessionStorage.getItem('bb_swapped') === CACHE_TAG) {
-					return;
+			Promise.all(regs.map((r) => r.unregister())).then(() => {
+				if (window.caches) {
+					return caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
 				}
-				sessionStorage.setItem('bb_swapped', CACHE_TAG);
-				$('tip').textContent = '새 버전으로 바꾸는 중…';
-				navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
-				w.postMessage('claim');
-				setTimeout(() => location.reload(), 2500);
-			};
-			const watch = (w) => {
-				if (!w) {
-					return;
+			}).then(() => {
+				if (!sessionStorage.getItem('bb_cleaned')) {
+					sessionStorage.setItem('bb_cleaned', '1');
+					location.reload();
 				}
-				if (w.state === 'installed') {
-					swap(w);
-				} else {
-					w.addEventListener('statechange', () => { if (w.state === 'installed') swap(w); });
-				}
-			};
-			if (reg.waiting) {
-				watch(reg.waiting);
-			}
-			reg.addEventListener('updatefound', () => watch(reg.installing));
-			reg.update().catch(() => {});
+			});
 		}).catch(() => {});
 	}
 
