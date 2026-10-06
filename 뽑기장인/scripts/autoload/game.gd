@@ -24,7 +24,8 @@ var bgm_volume := 0.6
 var sfx_volume := 0.9
 var mouse_sensitivity := 0.0022
 ## 게임 속도(1.0 = 보통, 2.0 = 두 배). 물리 계산 간격은 그대로 두고 1초에 계산하는 횟수를 늘려 똑같이 정확하게 빨라진다
-var game_speed := 1.0
+const DEFAULT_SPEED := 1.5  # 기본 1.5배속(메뉴에서 1.0~2.0배로 바꿀 수 있음)
+var game_speed := DEFAULT_SPEED
 const BASE_TICKS := 120
 var landscape_host: Node
 ## 터치(아이폰·아이패드 등) 조작 모드. PC에서 시험하려면 실행 인자 -- --touch
@@ -43,6 +44,7 @@ func _ready() -> void:
 		or OS.get_cmdline_user_args().has("--touch") or OS.get_environment("BBOPGI_TOUCH") == "1"
 	_register_inputs()
 	_setup_font_fallbacks()
+	set_game_speed(DEFAULT_SPEED)
 	load_game()
 	if touch:
 		_setup_mobile()
@@ -353,7 +355,7 @@ func save_game() -> void:
 		"wallet": wallet, "collection": collection, "machine_settings": machine_settings,
 		"ledgers": ledgers, "stats": stats, "spent_since_last_win": spent_since_last_win,
 		"bgm_volume": bgm_volume, "sfx_volume": sfx_volume, "mouse_sensitivity": mouse_sensitivity,
-		"machine_prizes": machine_prizes, "game_speed": game_speed,
+		"machine_prizes": machine_prizes, "game_speed2": game_speed,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
@@ -383,7 +385,8 @@ func load_game() -> void:
 	sfx_volume = float(data.get("sfx_volume", sfx_volume))
 	mouse_sensitivity = float(data.get("mouse_sensitivity", mouse_sensitivity))
 	machine_prizes = data.get("machine_prizes", {})
-	set_game_speed(float(data.get("game_speed", 1.0)))
+	# 예전 저장(기본이 1배속이던 때)은 새 기본 1.5배속으로 시작
+	set_game_speed(float(data.get("game_speed2", DEFAULT_SPEED)))
 
 
 func reset_all() -> void:

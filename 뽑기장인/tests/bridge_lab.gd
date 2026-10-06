@@ -123,6 +123,7 @@ func _initialize() -> void:
 				tgt.z = c.z + rng.randf_range(-0.17, 0.17)
 		game.give_money("1000", 1)
 		m.insert_bill("1000")
+		m._start_game()  # 돈만 넣으면 기다림 → 조작 시작과 같게
 		while m.state != 1:
 			await physics_frame
 		var t := 0.0

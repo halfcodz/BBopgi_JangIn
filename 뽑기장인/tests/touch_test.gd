@@ -196,14 +196,15 @@ func _initialize() -> void:
 	_check("지폐 고르기 버튼(1,000/5,000/10,000)", tc._buttons.any(func(b): return b["id"] == "bill1") and tc._buttons.any(func(b): return b["id"] == "bill5") and tc._buttons.any(func(b): return b["id"] == "bill10"))
 	await _tap("bill1")
 	await _frames(240)
-	_check("1,000원 넣기", m.credits > c0 or m.state != 0, "credit=%d state=%d" % [m.credits, m.state])
-	_check("큰 버튼 = 내리기", tc._buttons.any(func(b): return b["id"] == "main" and b["text"] == "내리기"))
-	# 조이스틱으로 집게 이동
+	_check("1,000원 넣기 → 크레딧만 쌓이고 기다림", m.credits > c0 and m.state == m.State.IDLE, "credit=%d state=%d" % [m.credits, m.state])
+	# 조이스틱으로 집게 이동(움직이는 순간 게임 시작)
 	var cx0: float = m.carriage.x
 	_down(0, jp)
 	await process_frame
 	_drag(0, jp + Vector2(85, 0), Vector2(85, 0))
 	await _frames(100)
+	_check("조이스틱을 움직이면 시작", m.state == m.State.MOVING, "state=%d" % m.state)
+	_check("큰 버튼 = 내리기", tc._buttons.any(func(b): return b["id"] == "main" and b["text"] == "내리기"))
 	_up(0, jp + Vector2(85, 0))
 	_check("조이스틱으로 집게 이동", m.carriage.x > cx0 + 0.05, "%.2fm" % (m.carriage.x - cx0))
 	await _tap("view")
@@ -230,6 +231,7 @@ func _initialize() -> void:
 		_check("2버튼 기계 상황", tc._ctx == "machine2", tc._ctx)
 		await _tap("bill1")
 		await _frames(240)
+		_check("2버튼: 돈 넣으면 기다리고 ① 버튼 보임", bm.state == bm.State.IDLE and tc._buttons.any(func(b): return b["id"] == "b1"), "state=%d" % bm.state)
 		var bx0: float = bm.carriage.x
 		var bz0: float = bm.carriage.z
 		_down(4, _btn("b1"))

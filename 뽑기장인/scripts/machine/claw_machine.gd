@@ -1081,10 +1081,14 @@ func insert_bill(kind_str: String) -> bool:
 	Sfx.play_at("bill_insert", to_global(Vector3(W * 0.3, base_h - 0.3, D * 0.5)))
 	get_tree().create_timer(0.9).timeout.connect(func(): Sfx.play_at("credit", global_position + Vector3(0, base_h, 0)))
 	credits_changed.emit(credits)
-	if state == State.IDLE:
-		get_tree().create_timer(1.0).timeout.connect(_start_game)
+	# 돈을 넣으면 크레딧만 쌓이고, 플레이어가 조작(조이스틱·버튼)을 시작해야 게임(제한 시간)이 시작된다
 	_update_labels()
 	return true
+
+
+## 크레딧이 있고 쉬는 중이면 조작을 시작하는 순간 한 판을 시작한다
+func _can_start() -> bool:
+	return state == State.IDLE and credits > 0 and not Game.owner_mode
 
 
 func _start_game() -> void:
@@ -1126,9 +1130,13 @@ func _power(key: String) -> float:
 # =================================================================== 입력(플레이어가 호출)
 func set_input(dir: Vector2) -> void:
 	input_dir = dir
+	if dir.length() > 0.25 and _can_start() and String(settings["control_mode"]) != "2button":
+		_start_game()
 
 
 func press_drop() -> void:
+	if _can_start() and String(settings["control_mode"]) != "2button":
+		_start_game()  # 버튼부터 눌러도 시작(그 자리에서 바로 내려간다)
 	if state == State.MOVING:
 		if String(settings["control_mode"]) == "2button":
 			return
@@ -1138,6 +1146,8 @@ func press_drop() -> void:
 
 ## 2버튼 기계: 버튼1(→) / 버튼2(↑ 안쪽) 를 누르고 있는 동안 이동, 떼면 그 방향은 끝
 func set_buttons(b1: bool, b2: bool) -> void:
+	if String(settings["control_mode"]) == "2button" and b1 and not btn1_down and _can_start():
+		_start_game()  # ① 버튼을 누르는 순간 시작
 	if String(settings["control_mode"]) != "2button" or state != State.MOVING:
 		btn1_down = false
 		btn2_down = false
@@ -1280,8 +1290,7 @@ func _physics_process(delta: float) -> void:
 				_last_game_end = Time.get_ticks_msec()
 				_set_state(State.IDLE)
 				save_layout()
-				if credits > 0:
-					get_tree().create_timer(0.6).timeout.connect(_start_game)
+				# 남은 크레딧이 있어도 다음 판은 플레이어가 조작을 시작할 때 시작
 	# 배출구 영역에 걸쳐 있는 상품을 주기적으로 다시 확인(천천히 미끄러져 들어가는 경우)
 	_bin_scan += 1
 	if _bin_scan % 8 == 0 and bin_area:
@@ -1556,7 +1565,7 @@ func _on_settings_changed(id: String) -> void:
 func state_text() -> String:
 	match state:
 		State.IDLE:
-			return "지폐를 넣어 주세요" if credits == 0 else "준비 중"
+			return "지폐를 넣어 주세요" if credits == 0 else "조작하면 시작해요"
 		State.MOVING:
 			return "이동 중 · 남은 시간 %d초" % int(ceil(time_left))
 		State.OPENING, State.DESCENDING:

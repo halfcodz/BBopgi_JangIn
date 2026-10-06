@@ -392,7 +392,9 @@ func _guide(m: ClawMachine) -> Array:
 	match m.state:
 		ClawMachine.State.IDLE:
 			if m.credits > 0:
-				return ["", "곧 시작해요..."]
+				if two:
+					return ["D", "크레딧 %d · ① 버튼을 누르면 시작해요" % m.credits]
+				return ["WASD", "크레딧 %d · 조이스틱을 움직이면 시작해요" % m.credits]
 			if Game.cash_total() <= 0:
 				return ["", "돈이 없어요! 지폐교환기·카운터를 확인하세요"]
 			return ["B", "1,000원 넣기  (N = 5,000원 · M = 10,000원)"]

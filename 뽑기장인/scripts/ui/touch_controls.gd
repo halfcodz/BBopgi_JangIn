@@ -94,7 +94,7 @@ func _machine_main(m: ClawMachine) -> Array:
 			return ["내려가요", ""]
 		return ["내리기", "claw_drop"]
 	if m.state == ClawMachine.State.IDLE:
-		return ["시작해요", ""]
+		return ["조이스틱을\n움직여 시작", ""]
 	return ["기다려요", ""]
 
 
@@ -115,7 +115,9 @@ func _layout() -> void:
 			_add("jump", "점프", "jump", Vector2(R - 96 if lab == "" else R - 262, B - 60), 44.0)
 		"machine", "machine2":
 			var m: ClawMachine = player.machine
-			var two_moving := _ctx == "machine2" and m.state == ClawMachine.State.MOVING and not m.drop_requested
+			# 2버튼 기계: 크레딧이 있으면 ① 버튼이 곧 시작 버튼
+			var two_ready := m.state == ClawMachine.State.IDLE and m.credits > 0 and m.prizes_in_bin().is_empty()
+			var two_moving := _ctx == "machine2" and ((m.state == ClawMachine.State.MOVING and not m.drop_requested) or two_ready)
 			if two_moving:
 				# 2버튼 기계: ① 누르는 동안 오른쪽, ② 누르는 동안 안쪽(떼면 내려감)
 				_add("b1", "① →", "button2", Vector2(R - 270, B - 92), 74.0, true, not m.btn1_used)
