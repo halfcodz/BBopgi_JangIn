@@ -66,7 +66,7 @@ func _build_environment() -> void:
 		e.adjustment_enabled = false
 		# 웹(호환 렌더러)의 SSAO 는 잡음을 걸러 주지 않아, 바닥 같은 넓은 면에 자글자글한 줄무늬가 생긴다 → 끈다
 		e.ssao_enabled = false
-		e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+		# 톤매핑은 PC와 같은 AgX(밝은 곳을 부드럽게 눌러 줘서 기계 안 조명이 눈부시지 않다)
 	we.environment = e
 	add_child(we)
 	# 웹(호환 렌더러)의 반사 프로브는 거친 반사를 흐리게 만들지 못해(필터 없는 낮은 해상도 큐브맵)
